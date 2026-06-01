@@ -25,47 +25,47 @@ class NotionClient:
 
         existing_page_id = self._find_page_by_thread_ts(thread_ts)
 
-        properties = {
-            "質問の内容": {"title": [{"text": {"content": parsed["question"][:200]}}]},
-            "タイムスタンプ": {"rich_text": [{"text": {"content": thread_ts}}]},
-            "質問者": {"rich_text": [{"text": {"content": questioner}}]},
-            "回答者": {"rich_text": [{"text": {"content": answerers}}]},
-            "送信日時": {"date": {"start": date_str}},
-            "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
-            "サービス": {"rich_text": [{"text": {"content": parsed["service"]}}]},
-            "質問の背景": {"rich_text": [{"text": {"content": parsed["background"][:2000]}}]},
-        }
-
-        children = [
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {"rich_text": [{"text": {"content": "質問"}}]},
-            },
-            {
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": [{"text": {"content": parsed["question"][:2000]}}]},
-            },
-            {
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {"rich_text": [{"text": {"content": "回答"}}]},
-            },
-            {
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": [{"text": {"content": answers_combined[:2000] or "（未回答）"}}]},
-            },
-        ]
-
         if existing_page_id:
-            self.client.pages.update(page_id=existing_page_id, properties=properties)
-            existing_blocks = self.client.blocks.children.list(block_id=existing_page_id)
-            for block in existing_blocks.get("results", []):
-                self.client.blocks.delete(block_id=block["id"])
-            self.client.blocks.children.append(block_id=existing_page_id, children=children)
+            # 既存ページは回答・回答者のみ更新（手入力済みフィールドは触らない）
+            self.client.pages.update(
+                page_id=existing_page_id,
+                properties={
+                    "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+                    "回答者": {"rich_text": [{"text": {"content": answerers}}]},
+                },
+            )
         else:
+            # 新規ページは bot が把握できるフィールドだけ書き込む
+            properties = {
+                "質問の内容": {"title": [{"text": {"content": parsed["question"][:200]}}]},
+                "タイムスタンプ": {"rich_text": [{"text": {"content": thread_ts}}]},
+                "質問者": {"rich_text": [{"text": {"content": questioner}}]},
+                "回答者": {"rich_text": [{"text": {"content": answerers}}]},
+                "送信日時": {"date": {"start": date_str}},
+                "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+            }
+            children = [
+                {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {"rich_text": [{"text": {"content": "質問"}}]},
+                },
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"text": {"content": parsed["question"][:2000]}}]},
+                },
+                {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {"rich_text": [{"text": {"content": "回答"}}]},
+                },
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"text": {"content": answers_combined[:2000] or "（未回答）"}}]},
+                },
+            ]
             self.client.pages.create(
                 parent={"database_id": self.database_id},
                 properties=properties,
