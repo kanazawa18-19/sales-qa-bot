@@ -26,11 +26,11 @@ class NotionClient:
         existing_page_id = self._find_page_by_thread_ts(thread_ts)
 
         if existing_page_id:
-            # 既存ページは回答・回答者のみ更新（手入力済みフィールドは触らない）
+            # 既存ページは回答テキスト・回答者のみ更新（手入力済みフィールドは触らない）
             self.client.pages.update(
                 page_id=existing_page_id,
                 properties={
-                    "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+                    "回答テキスト": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
                     "回答者": {"rich_text": [{"text": {"content": answerers}}]},
                 },
             )
@@ -41,8 +41,8 @@ class NotionClient:
                 "タイムスタンプ": {"rich_text": [{"text": {"content": thread_ts}}]},
                 "質問者": {"rich_text": [{"text": {"content": questioner}}]},
                 "回答者": {"rich_text": [{"text": {"content": answerers}}]},
-                "送信日時": {"date": {"start": date_str}},
-                "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+                "質問日時": {"date": {"start": date_str}},
+                "回答テキスト": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
             }
             children = [
                 {
@@ -58,7 +58,7 @@ class NotionClient:
                 {
                     "object": "block",
                     "type": "heading_2",
-                    "heading_2": {"rich_text": [{"text": {"content": "回答"}}]},
+                    "heading_2": {"rich_text": [{"text": {"content": "回答テキスト"}}]},
                 },
                 {
                     "object": "block",
