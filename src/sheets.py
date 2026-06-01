@@ -174,11 +174,13 @@ class SheetsClient:
 
         existing_row = self._find_row_by_thread_ts(thread_ts)
         if existing_row:
-            self.sheet.values().update(
+            # 既存行は回答者(F)と回答テキスト(J)のみ更新（手入力済み列は触らない）
+            self.sheet.values().batchUpdate(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{self.sheet_name}!A{existing_row}",
-                valueInputOption="RAW",
-                body={"values": [row_data]},
+                body={"valueInputOption": "RAW", "data": [
+                    {"range": f"{self.sheet_name}!F{existing_row}", "values": [[answerers]]},
+                    {"range": f"{self.sheet_name}!J{existing_row}", "values": [[answers_text]]},
+                ]},
             ).execute()
         else:
             self.sheet.values().append(
