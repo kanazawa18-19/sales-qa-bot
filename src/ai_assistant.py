@@ -68,7 +68,9 @@ class AIAssistant:
             return "（まだQ&Aデータがありません）"
         lines = []
         for i, qa in enumerate(qa_data[-100:], 1):  # 直近100件
-            lines.append(f"Q{i}: {qa['question']}")
+            service = qa.get("service", "")
+            prefix = f"[{service}] " if service else ""
+            lines.append(f"Q{i}: {prefix}{qa['question']}")
             if qa.get("answers"):
                 lines.append(f"A{i}: {qa['answers'][:500]}")
             lines.append("")

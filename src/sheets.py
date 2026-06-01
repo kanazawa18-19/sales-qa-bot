@@ -6,7 +6,12 @@ from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-HEADERS = ["thread_ts", "date", "channel", "questioner", "question", "answers", "answer_count"]
+# 既存シートの列レイアウト:
+# A(0): サービス  B(1): 質問内容  C(2): 質問背景  D(3): URL
+# E(4): 質問者   F(5): 回答者    G(6): 画像      H(7): 送信日時
+# I(8): タイムスタンプ (thread_ts / unique key)
+# J(9): 回答テキスト (botが追加する列)
+
 CORRECTIONS_HEADERS = ["question", "correct_answer", "updated_at", "note"]
 
 
@@ -21,21 +26,22 @@ class SheetsClient:
         self.sheet_name = os.environ.get("GOOGLE_SHEET_NAME", "QA")
         self.corrections_sheet_name = "CORRECTIONS"
         self.state_sheet_name = "STATE"
-        self._ensure_headers()
+        self._ensure_answer_column()
         self._ensure_corrections_headers()
         self._ensure_state_sheet()
 
-    def _ensure_headers(self):
+    def _ensure_answer_column(self):
+        """J1に回答テキストヘッダーがなければ追加する"""
         result = self.sheet.values().get(
             spreadsheetId=self.spreadsheet_id,
-            range=f"{self.sheet_name}!A1:G1",
+            range=f"{self.sheet_name}!J1",
         ).execute()
         if not result.get("values"):
             self.sheet.values().update(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{self.sheet_name}!A1",
+                range=f"{self.sheet_name}!J1",
                 valueInputOption="RAW",
-                body={"values": [HEADERS]},
+                body={"values": [["回答テキスト"]]},
             ).execute()
 
     def _ensure_corrections_headers(self):
@@ -90,9 +96,10 @@ class SheetsClient:
                 return
 
     def _find_row_by_thread_ts(self, thread_ts: str) -> int | None:
+        """タイムスタンプ列(I列)でthread_tsを検索"""
         result = self.sheet.values().get(
             spreadsheetId=self.spreadsheet_id,
-            range=f"{self.sheet_name}!A:A",
+            range=f"{self.sheet_name}!I:I",
         ).execute()
         rows = result.get("values", [])
         for i, row in enumerate(rows):
@@ -106,18 +113,25 @@ class SheetsClient:
         channel = question_msg.get("channel", "")
         date = datetime.fromtimestamp(float(thread_ts)).strftime("%Y-%m-%d %H:%M")
 
-        answers_combined = "\n---\n".join(
+        slack_url = f"https://cnctor.slack.com/archives/{channel}/p{thread_ts.replace('.', '')}"
+        answerers = ", ".join(
+            m.get("user", "") for m in answer_msgs if m.get("user")
+        )
+        answers_text = "\n---\n".join(
             m.get("text", "") for m in answer_msgs if m.get("text")
         )
 
         row_data = [
-            thread_ts,
-            date,
-            channel,
-            questioner,
-            question_text,
-            answers_combined,
-            str(len(answer_msgs)),
+            "",             # A: サービス (手動入力用)
+            question_text,  # B: 質問内容
+            "",             # C: 質問背景 (手動入力用)
+            slack_url,      # D: URL
+            questioner,     # E: 質問者
+            answerers,      # F: 回答者
+            "",             # G: 画像
+            date,           # H: 送信日時
+            thread_ts,      # I: タイムスタンプ
+            answers_text,   # J: 回答テキスト
         ]
 
         existing_row = self._find_row_by_thread_ts(thread_ts)
@@ -156,15 +170,18 @@ class SheetsClient:
     def get_all_qa(self) -> list[dict]:
         result = self.sheet.values().get(
             spreadsheetId=self.spreadsheet_id,
-            range=f"{self.sheet_name}!A2:G",
+            range=f"{self.sheet_name}!A2:J",
         ).execute()
         rows = result.get("values", [])
         qa_list = []
         for row in rows:
-            if len(row) >= 6 and row[4]:
-                qa_list.append({
-                    "question": row[4],
-                    "answers": row[5] if len(row) > 5 else "",
-                    "date": row[1] if len(row) > 1 else "",
-                })
+            question = row[1] if len(row) > 1 else ""  # 質問内容
+            if not question:
+                continue
+            qa_list.append({
+                "service": row[0] if len(row) > 0 else "",
+                "question": question,
+                "answers": row[9] if len(row) > 9 else "",  # 回答テキスト
+                "date": row[7] if len(row) > 7 else "",     # 送信日時
+            })
         return qa_list

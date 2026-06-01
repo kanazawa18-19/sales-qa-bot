@@ -16,15 +16,19 @@ class NotionClient:
         answers_combined = "\n\n---\n\n".join(
             m.get("text", "") for m in answer_msgs if m.get("text")
         )
+        answerers = ", ".join(
+            m.get("user", "") for m in answer_msgs if m.get("user")
+        )
 
         existing_page_id = self._find_page_by_thread_ts(thread_ts)
 
         properties = {
-            "title": {"title": [{"text": {"content": question_text[:200]}}]},
-            "Thread TS": {"rich_text": [{"text": {"content": thread_ts}}]},
-            "Questioner": {"rich_text": [{"text": {"content": questioner}}]},
-            "Date": {"date": {"start": date_str}},
-            "Answer Count": {"number": len(answer_msgs)},
+            "質問の内容": {"title": [{"text": {"content": question_text[:200]}}]},
+            "タイムスタンプ": {"rich_text": [{"text": {"content": thread_ts}}]},
+            "質問者": {"rich_text": [{"text": {"content": questioner}}]},
+            "回答者": {"rich_text": [{"text": {"content": answerers}}]},
+            "送信日時": {"date": {"start": date_str}},
+            "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
         }
 
         children = [
@@ -36,7 +40,7 @@ class NotionClient:
             {
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {"rich_text": [{"text": {"content": question_text}}]},
+                "paragraph": {"rich_text": [{"text": {"content": question_text[:2000]}}]},
             },
             {
                 "object": "block",
@@ -46,13 +50,12 @@ class NotionClient:
             {
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {"rich_text": [{"text": {"content": answers_combined or "（未回答）"}}]},
+                "paragraph": {"rich_text": [{"text": {"content": answers_combined[:2000] or "（未回答）"}}]},
             },
         ]
 
         if existing_page_id:
             self.client.pages.update(page_id=existing_page_id, properties=properties)
-            # Clear and re-add children blocks
             existing_blocks = self.client.blocks.children.list(block_id=existing_page_id)
             for block in existing_blocks.get("results", []):
                 self.client.blocks.delete(block_id=block["id"])
@@ -68,7 +71,7 @@ class NotionClient:
         result = self.client.databases.query(
             database_id=self.database_id,
             filter={
-                "property": "Thread TS",
+                "property": "タイムスタンプ",
                 "rich_text": {"equals": thread_ts},
             },
         )
