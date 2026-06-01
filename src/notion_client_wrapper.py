@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 from notion_client import Client
 
+from sheets import parse_qa_message
+
 
 class NotionClient:
     def __init__(self):
@@ -9,10 +11,11 @@ class NotionClient:
         self.database_id = os.environ.get("NOTION_DATABASE_ID")
 
     def upsert_qa(self, thread_ts: str, question_msg: dict, answer_msgs: list[dict]):
-        question_text = question_msg.get("text", "")
+        raw_text = question_msg.get("text", "")
         questioner = question_msg.get("user", "unknown")
         date_str = datetime.fromtimestamp(float(thread_ts)).strftime("%Y-%m-%dT%H:%M:%S+09:00")
 
+        parsed = parse_qa_message(raw_text)
         answers_combined = "\n\n---\n\n".join(
             m.get("text", "") for m in answer_msgs if m.get("text")
         )
@@ -23,12 +26,14 @@ class NotionClient:
         existing_page_id = self._find_page_by_thread_ts(thread_ts)
 
         properties = {
-            "質問の内容": {"title": [{"text": {"content": question_text[:200]}}]},
+            "質問の内容": {"title": [{"text": {"content": parsed["question"][:200]}}]},
             "タイムスタンプ": {"rich_text": [{"text": {"content": thread_ts}}]},
             "質問者": {"rich_text": [{"text": {"content": questioner}}]},
             "回答者": {"rich_text": [{"text": {"content": answerers}}]},
             "送信日時": {"date": {"start": date_str}},
             "回答": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+            "サービス": {"rich_text": [{"text": {"content": parsed["service"]}}]},
+            "質問の背景": {"rich_text": [{"text": {"content": parsed["background"][:2000]}}]},
         }
 
         children = [
@@ -40,7 +45,7 @@ class NotionClient:
             {
                 "object": "block",
                 "type": "paragraph",
-                "paragraph": {"rich_text": [{"text": {"content": question_text[:2000]}}]},
+                "paragraph": {"rich_text": [{"text": {"content": parsed["question"][:2000]}}]},
             },
             {
                 "object": "block",

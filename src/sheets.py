@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -13,6 +14,42 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 # J(9): 回答テキスト (botが追加する列)
 
 CORRECTIONS_HEADERS = ["question", "correct_answer", "updated_at", "note"]
+
+
+def parse_qa_message(text: str) -> dict:
+    """
+    Slack Workflow の構造化メッセージをパースして各フィールドを返す。
+
+    フォーマット例:
+    ■サービス
+    リピッテホテル
+
+    ■質問内容
+    ...
+
+    ■質問の背景や意図
+    ...
+    """
+    def extract_section(label: str) -> str:
+        pattern = rf"■{label}\s*\n(.*?)(?=\n■|\Z)"
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return ""
+
+    service = extract_section("サービス")
+    question = extract_section("質問内容")
+    background = extract_section("質問の背景や意図")
+
+    # 構造化フォーマットでなければ全文を質問として扱う
+    if not question:
+        question = text.strip()
+
+    return {
+        "service": service,
+        "question": question,
+        "background": background,
+    }
 
 
 class SheetsClient:
@@ -108,11 +145,12 @@ class SheetsClient:
         return None
 
     def upsert_qa(self, thread_ts: str, question_msg: dict, answer_msgs: list[dict]):
-        question_text = question_msg.get("text", "")
+        raw_text = question_msg.get("text", "")
         questioner = question_msg.get("user", "unknown")
         channel = question_msg.get("channel", "")
         date = datetime.fromtimestamp(float(thread_ts)).strftime("%Y-%m-%d %H:%M")
 
+        parsed = parse_qa_message(raw_text)
         slack_url = f"https://cnctor.slack.com/archives/{channel}/p{thread_ts.replace('.', '')}"
         answerers = ", ".join(
             m.get("user", "") for m in answer_msgs if m.get("user")
@@ -122,16 +160,16 @@ class SheetsClient:
         )
 
         row_data = [
-            "",             # A: サービス (手動入力用)
-            question_text,  # B: 質問内容
-            "",             # C: 質問背景 (手動入力用)
-            slack_url,      # D: URL
-            questioner,     # E: 質問者
-            answerers,      # F: 回答者
-            "",             # G: 画像
-            date,           # H: 送信日時
-            thread_ts,      # I: タイムスタンプ
-            answers_text,   # J: 回答テキスト
+            parsed["service"],      # A: サービス
+            parsed["question"],     # B: 質問内容
+            parsed["background"],   # C: 質問背景
+            slack_url,              # D: URL
+            questioner,             # E: 質問者
+            answerers,              # F: 回答者
+            "",                     # G: 画像
+            date,                   # H: 送信日時
+            thread_ts,              # I: タイムスタンプ
+            answers_text,           # J: 回答テキスト
         ]
 
         existing_row = self._find_row_by_thread_ts(thread_ts)
