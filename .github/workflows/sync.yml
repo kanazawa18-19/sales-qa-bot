@@ -1,6 +1,8 @@
 name: Sync NotebookLM Sources
 
 on:
+  schedule:
+    - cron: '0 */6 * * *'  # 6時間ごと
   workflow_dispatch:
 
 jobs:
