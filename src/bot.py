@@ -1,4 +1,5 @@
 import os
+import ssl
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -15,6 +16,12 @@ app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 sheets = SheetsClient()
 notion = NotionClient()
 ai = AIAssistant()
+
+
+def _rebuild_sheets():
+    global sheets
+    logger.info("Rebuilding SheetsClient due to SSL error")
+    sheets = SheetsClient()
 
 QA_CHANNEL_ID = os.environ.get("QA_CHANNEL_ID")
 AI_CHANNEL_ID = os.environ.get("AI_CHANNEL_ID")
@@ -72,16 +79,25 @@ def handle_message(event, client, say):
             return
 
         logger.info(f"Calling AI for: {text[:50]}")
-        try:
-            qa_data = sheets.get_all_qa()
-            corrections = sheets.get_corrections()
-            answer = ai.answer(text, qa_data, corrections, SERVICE_MATERIALS)
-            logger.info(f"AI answer ready, posting to Slack")
-            say(text=answer, thread_ts=ts)
-            logger.info("Posted to Slack")
-        except Exception as e:
-            logger.error(f"AI answer failed: {e}", exc_info=True)
-            say(text="回答の生成に失敗しました。", thread_ts=ts)
+        for attempt in range(2):
+            try:
+                qa_data = sheets.get_all_qa()
+                corrections = sheets.get_corrections()
+                answer = ai.answer(text, qa_data, corrections, SERVICE_MATERIALS)
+                logger.info("AI answer ready, posting to Slack")
+                say(text=answer, thread_ts=ts)
+                logger.info("Posted to Slack")
+                break
+            except ssl.SSLEOFError:
+                if attempt == 0:
+                    _rebuild_sheets()
+                else:
+                    logger.error("SSL error on retry, giving up")
+                    say(text="回答の生成に失敗しました。", thread_ts=ts)
+            except Exception as e:
+                logger.error(f"AI answer failed: {e}", exc_info=True)
+                say(text="回答の生成に失敗しました。", thread_ts=ts)
+                break
 
 
 @app.event("app_mention")
