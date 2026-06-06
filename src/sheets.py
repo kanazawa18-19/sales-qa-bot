@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -81,12 +82,25 @@ class SheetsClient:
                 body={"values": [["回答テキスト"]]},
             ).execute()
 
-    def _ensure_corrections_headers(self):
-        result = self.sheet.values().get(
+    def _create_sheet(self, title: str):
+        self.sheet.batchUpdate(
             spreadsheetId=self.spreadsheet_id,
-            range=f"{self.corrections_sheet_name}!A1:D1",
+            body={"requests": [{"addSheet": {"properties": {"title": title}}}]},
         ).execute()
-        if not result.get("values"):
+
+    def _ensure_corrections_headers(self):
+        try:
+            result = self.sheet.values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{self.corrections_sheet_name}!A1:D1",
+            ).execute()
+            if not result.get("values"):
+                raise ValueError("empty")
+        except (HttpError, ValueError):
+            try:
+                self._create_sheet(self.corrections_sheet_name)
+            except HttpError:
+                pass
             self.sheet.values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{self.corrections_sheet_name}!A1",
@@ -95,11 +109,18 @@ class SheetsClient:
             ).execute()
 
     def _ensure_state_sheet(self):
-        result = self.sheet.values().get(
-            spreadsheetId=self.spreadsheet_id,
-            range=f"{self.state_sheet_name}!A1:B1",
-        ).execute()
-        if not result.get("values"):
+        try:
+            result = self.sheet.values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{self.state_sheet_name}!A1:B1",
+            ).execute()
+            if not result.get("values"):
+                raise ValueError("empty")
+        except (HttpError, ValueError):
+            try:
+                self._create_sheet(self.state_sheet_name)
+            except HttpError:
+                pass
             self.sheet.values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{self.state_sheet_name}!A1",
