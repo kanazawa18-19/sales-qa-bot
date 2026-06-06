@@ -17,6 +17,7 @@ notion = NotionClient()
 ai = AIAssistant()
 
 QA_CHANNEL_ID = os.environ.get("QA_CHANNEL_ID")
+AI_CHANNEL_ID = os.environ.get("AI_CHANNEL_ID")
 SERVICE_MATERIALS = os.environ.get("SERVICE_MATERIALS_TEXT", "")
 
 
@@ -42,18 +43,38 @@ def capture_thread(client, channel: str, thread_ts: str):
 
 
 @app.event("message")
-def handle_message(event, client):
-    # Q&Aチャンネル以外は無視
-    if event.get("channel") != QA_CHANNEL_ID:
-        return
+def handle_message(event, client, say):
+    channel = event.get("channel")
+
     # Bot・システムメッセージは無視
     if event.get("bot_id") or event.get("subtype"):
         return
 
-    thread_ts = event.get("thread_ts")
-    if thread_ts:
-        # スレッド内の返信 → スレッド全体をキャプチャ（都度更新）
-        capture_thread(client, event["channel"], thread_ts)
+    # Q&Aキャプチャ
+    if channel == QA_CHANNEL_ID:
+        thread_ts = event.get("thread_ts")
+        if thread_ts:
+            capture_thread(client, channel, thread_ts)
+
+    # AIチャンネル全自動回答
+    elif AI_CHANNEL_ID and channel == AI_CHANNEL_ID:
+        # スレッド返信は無視（最初の投稿のみ対象）
+        ts = event.get("ts")
+        if event.get("thread_ts") and event.get("thread_ts") != ts:
+            return
+
+        text = event.get("text", "").strip()
+        if not text:
+            return
+
+        try:
+            qa_data = sheets.get_all_qa()
+            corrections = sheets.get_corrections()
+            answer = ai.answer(text, qa_data, corrections, SERVICE_MATERIALS)
+            say(text=answer, thread_ts=ts)
+        except Exception as e:
+            logger.error(f"AI answer failed: {e}")
+            say(text="回答の生成に失敗しました。", thread_ts=ts)
 
 
 @app.event("app_mention")

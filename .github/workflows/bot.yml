@@ -39,6 +39,9 @@ jobs:
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SERVICE_MATERIALS_TEXT: ${{ secrets.SERVICE_MATERIALS_TEXT }}
+          NOTEBOOKLM_NOTEBOOK_ID: ${{ secrets.NOTEBOOKLM_NOTEBOOK_ID }}
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+          AI_CHANNEL_ID: ${{ secrets.AI_CHANNEL_ID }}
 
       - name: Restart workflow
         if: always()

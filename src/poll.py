@@ -53,6 +53,41 @@ def capture_qa_threads(slack, sheets, notion, channel, oldest):
         logger.info(f"Saved thread {thread_ts} ({len(answer_msgs)} answers)")
 
 
+def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest):
+    ai_channel = os.environ.get("AI_CHANNEL_ID")
+    if not ai_channel:
+        return
+
+    for msg in get_history(slack, ai_channel, oldest):
+        # スレッド返信は無視（最初の投稿のみ対象）
+        if msg.get("thread_ts") and msg.get("thread_ts") != msg.get("ts"):
+            continue
+        if msg.get("bot_id") or msg.get("user") == bot_user_id:
+            continue
+
+        ts = msg.get("ts")
+        text = msg.get("text", "").strip()
+        if not text:
+            continue
+
+        # すでにbotが返信済みならスキップ
+        thread_msgs = get_thread(slack, ai_channel, ts)
+        if any(m.get("user") == bot_user_id for m in thread_msgs[1:]):
+            continue
+
+        try:
+            answer = ai.answer(
+                text,
+                sheets.get_all_qa(),
+                sheets.get_corrections(),
+                os.environ.get("SERVICE_MATERIALS_TEXT", ""),
+            )
+            slack.chat_postMessage(channel=ai_channel, thread_ts=ts, text=answer)
+            logger.info(f"AI replied in AI channel: {ts}")
+        except Exception as e:
+            logger.error(f"AI failed for AI channel message {ts}: {e}")
+
+
 def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest):
     try:
         channels = [
@@ -120,6 +155,7 @@ def main():
         logger.info(f"Polling since ts={last_ts}")
 
         capture_qa_threads(slack, sheets, notion, qa_channel, last_ts)
+        handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts)
         handle_ai_mentions(slack, sheets, ai, bot_user_id, last_ts)
 
         last_ts = current_ts

@@ -1,5 +1,10 @@
 import os
+import asyncio
+import logging
+import tempfile
 import anthropic
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """あなたは営業支援AIアシスタントです。
 社内の営業Q&Aデータベースとサービス資料をもとに、営業メンバーの質問に正確・簡潔に答えてください。
@@ -18,8 +23,21 @@ SYSTEM_PROMPT = """あなたは営業支援AIアシスタントです。
 
 class AIAssistant:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        self.model = "claude-sonnet-4-6"
+        self.notebook_id = os.environ.get("NOTEBOOKLM_NOTEBOOK_ID")
+        self._storage_path = self._prepare_storage()
+        self._use_notebooklm = bool(self.notebook_id and self._storage_path)
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        self._claude = anthropic.Anthropic(api_key=api_key) if api_key else None
+
+    def _prepare_storage(self) -> str | None:
+        storage_json = os.environ.get("NOTEBOOKLM_STORAGE_JSON")
+        if not storage_json:
+            return None
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        tmp.write(storage_json)
+        tmp.close()
+        return tmp.name
 
     def answer(
         self,
@@ -28,7 +46,31 @@ class AIAssistant:
         corrections: list[dict] | None = None,
         service_materials: str = "",
     ) -> str:
-        corrections_context = self._build_corrections_context(corrections or [])
+        if self._use_notebooklm:
+            try:
+                return asyncio.run(self._ask_notebooklm(user_question))
+            except Exception as e:
+                logger.error(f"NotebookLM failed, falling back to Claude: {e}")
+
+        if self._claude:
+            return self._ask_claude(user_question, qa_data, corrections or [], service_materials)
+
+        raise RuntimeError("AI backend not configured. Set NOTEBOOKLM_* or ANTHROPIC_API_KEY.")
+
+    async def _ask_notebooklm(self, question: str) -> str:
+        from notebooklm import NotebookLMClient
+        async with NotebookLMClient.from_storage(path=self._storage_path) as client:
+            result = await client.chat.ask(self.notebook_id, question)
+            return result.answer
+
+    def _ask_claude(
+        self,
+        user_question: str,
+        qa_data: list[dict],
+        corrections: list[dict],
+        service_materials: str,
+    ) -> str:
+        corrections_context = self._build_corrections_context(corrections)
         qa_context = self._build_qa_context(qa_data)
 
         user_content = f"""【営業メンバーからの質問】
@@ -43,8 +85,8 @@ class AIAssistant:
         if service_materials:
             user_content += f"\n【サービス資料】\n{service_materials}"
 
-        message = self.client.messages.create(
-            model=self.model,
+        message = self._claude.messages.create(
+            model="claude-sonnet-4-6",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
@@ -67,7 +109,7 @@ class AIAssistant:
         if not qa_data:
             return "（まだQ&Aデータがありません）"
         lines = []
-        for i, qa in enumerate(qa_data[-100:], 1):  # 直近100件
+        for i, qa in enumerate(qa_data[-100:], 1):
             service = qa.get("service", "")
             prefix = f"[{service}] " if service else ""
             lines.append(f"Q{i}: {prefix}{qa['question']}")
