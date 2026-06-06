@@ -59,22 +59,28 @@ def handle_message(event, client, say):
 
     # AIチャンネル全自動回答
     elif AI_CHANNEL_ID and channel == AI_CHANNEL_ID:
+        logger.info(f"AI channel match. ts={event.get('ts')} thread_ts={event.get('thread_ts')}")
         # スレッド返信は無視（最初の投稿のみ対象）
         ts = event.get("ts")
         if event.get("thread_ts") and event.get("thread_ts") != ts:
+            logger.info("Skipping thread reply")
             return
 
         text = event.get("text", "").strip()
         if not text:
+            logger.info("Skipping empty text")
             return
 
+        logger.info(f"Calling AI for: {text[:50]}")
         try:
             qa_data = sheets.get_all_qa()
             corrections = sheets.get_corrections()
             answer = ai.answer(text, qa_data, corrections, SERVICE_MATERIALS)
+            logger.info(f"AI answer ready, posting to Slack")
             say(text=answer, thread_ts=ts)
+            logger.info("Posted to Slack")
         except Exception as e:
-            logger.error(f"AI answer failed: {e}")
+            logger.error(f"AI answer failed: {e}", exc_info=True)
             say(text="回答の生成に失敗しました。", thread_ts=ts)
 
 
