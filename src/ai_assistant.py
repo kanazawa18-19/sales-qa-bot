@@ -60,6 +60,12 @@ class AIAssistant:
     async def _ask_notebooklm(self, question: str) -> str:
         from notebooklm import NotebookLMClient
         async with NotebookLMClient.from_storage(path=self._storage_path) as client:
+            sources = await client.sources.list(self.notebook_id)
+            for source in sources:
+                try:
+                    await client.sources.refresh(self.notebook_id, source.id)
+                except Exception as e:
+                    logger.warning(f"Failed to refresh source {source.id}: {e}")
             result = await client.chat.ask(self.notebook_id, question)
             return result.answer
 
