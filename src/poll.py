@@ -36,6 +36,8 @@ def capture_qa_threads(slack, sheets, notion, channel, oldest):
     seen = set()
 
     for msg in messages:
+        if msg.get("subtype") in ("channel_join", "channel_leave"):
+            continue
         thread_ts = msg.get("thread_ts") or msg.get("ts")
         if not thread_ts or thread_ts in seen:
             continue
@@ -59,6 +61,8 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest):
         return
 
     for msg in get_history(slack, ai_channel, oldest):
+        if msg.get("subtype") in ("channel_join", "channel_leave"):
+            continue
         # スレッド返信は無視（最初の投稿のみ対象）
         if msg.get("thread_ts") and msg.get("thread_ts") != msg.get("ts"):
             continue

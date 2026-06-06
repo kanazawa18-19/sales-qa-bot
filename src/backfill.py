@@ -68,6 +68,8 @@ def main():
     seen = set()
     success = 0
     for msg in messages:
+        if msg.get("subtype") in ("channel_join", "channel_leave"):
+            continue
         thread_ts = msg.get("thread_ts") or msg.get("ts")
         if not thread_ts or thread_ts in seen:
             continue
