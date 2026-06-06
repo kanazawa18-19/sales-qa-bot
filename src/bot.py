@@ -45,6 +45,7 @@ def capture_thread(client, channel: str, thread_ts: str):
 @app.event("message")
 def handle_message(event, client, say):
     channel = event.get("channel")
+    logger.info(f"Message event: channel={channel}, subtype={event.get('subtype')}, bot_id={event.get('bot_id')}")
 
     # Bot・システムメッセージは無視
     if event.get("bot_id") or event.get("subtype"):
