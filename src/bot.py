@@ -17,6 +17,8 @@ sheets = SheetsClient()
 notion = NotionClient()
 ai = AIAssistant()
 
+_bot_id = app.client.auth_test().get("bot_id")
+
 
 def _rebuild_sheets():
     global sheets
@@ -54,8 +56,10 @@ def handle_message(event, client, say):
     channel = event.get("channel")
     logger.info(f"Message event: channel={channel}, subtype={event.get('subtype')}, bot_id={event.get('bot_id')}")
 
-    # Bot・システムメッセージは無視
-    if event.get("bot_id") or event.get("subtype"):
+    # 自分自身のメッセージと編集・削除・入退室は無視
+    if event.get("bot_id") == _bot_id:
+        return
+    if event.get("subtype") in ("message_changed", "message_deleted", "channel_join", "channel_leave"):
         return
 
     # Q&Aキャプチャ
