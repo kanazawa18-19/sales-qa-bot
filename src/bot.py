@@ -58,7 +58,7 @@ def handle_message(event, client, say):
             capture_thread(client, channel, thread_ts)
 
     # AIチャンネル全自動回答
-    elif AI_CHANNEL_ID and channel == AI_CHANNEL_ID:
+    if AI_CHANNEL_ID and channel == AI_CHANNEL_ID:
         logger.info(f"AI channel match. ts={event.get('ts')} thread_ts={event.get('thread_ts')}")
         # スレッド返信は無視（最初の投稿のみ対象）
         ts = event.get("ts")
