@@ -154,15 +154,20 @@ class SheetsClient:
                 return
 
     def _find_row_by_thread_ts(self, thread_ts: str) -> int | None:
-        """タイムスタンプ列(I列)でthread_tsを検索"""
+        """I列(thread_ts)またはD列(URL)でrow番号を検索"""
+        ts_no_dot = thread_ts.replace(".", "")
         result = self.sheet.values().get(
             spreadsheetId=self.spreadsheet_id,
-            range=f"{self.sheet_name}!I:I",
+            range=f"{self.sheet_name}!D:I",
         ).execute()
         rows = result.get("values", [])
         for i, row in enumerate(rows):
-            if row and row[0] == thread_ts:
-                return i + 1  # 1-indexed
+            # I列(インデックス5)でthread_ts一致
+            if len(row) > 5 and row[5] == thread_ts:
+                return i + 1
+            # D列(インデックス0)のURLにthread_tsが含まれる
+            if len(row) > 0 and ts_no_dot in row[0]:
+                return i + 1
         return None
 
     def upsert_qa(self, thread_ts: str, question_msg: dict, answer_msgs: list[dict]):
