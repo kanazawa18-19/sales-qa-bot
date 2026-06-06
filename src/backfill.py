@@ -3,6 +3,7 @@
 一度だけ実行するスクリプト。
 """
 import os
+import time
 import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -29,6 +30,7 @@ def get_all_history(slack: WebClient, channel: str) -> list[dict]:
             if not cursor:
                 break
             logger.info(f"Fetched {len(messages)} messages so far...")
+            time.sleep(1)
         except SlackApiError as e:
             logger.error(f"history error: {e}")
             break
@@ -56,7 +58,7 @@ def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
 
 
 def main():
-    slack = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    slack = WebClient(token=os.environ["SLACK_BOT_TOKEN"], timeout=60)
     sheets = SheetsClient()
     notion = NotionClient()
     qa_channel = os.environ["QA_CHANNEL_ID"]
@@ -89,6 +91,7 @@ def main():
             logger.info(f"Saved thread {thread_ts} ({len(answer_msgs)} answers)")
         except Exception as e:
             logger.error(f"Failed thread {thread_ts}: {e}")
+        time.sleep(0.5)
 
     logger.info(f"Backfill complete. {success}/{len(seen)} threads saved.")
 
