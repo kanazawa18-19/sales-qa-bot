@@ -22,14 +22,17 @@ class NotionClient:
         answerers = ", ".join(
             m.get("user", "") for m in answer_msgs if m.get("user")
         )
+        channel = question_msg.get("channel", "")
+        slack_url = f"https://cnctor.slack.com/archives/{channel}/p{thread_ts.replace('.', '')}"
 
         existing_page_id = self._find_page_by_thread_ts(thread_ts)
 
         if existing_page_id:
-            # 既存ページは回答テキスト・回答者のみ更新（手入力済みフィールドは触らない）
             self.client.pages.update(
                 page_id=existing_page_id,
                 properties={
+                    "サービス": {"rich_text": [{"text": {"content": parsed["service"]}}]},
+                    "URL": {"url": slack_url},
                     "回答テキスト": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
                     "回答者": {"rich_text": [{"text": {"content": answerers}}]},
                 },
@@ -43,6 +46,8 @@ class NotionClient:
                 "回答者": {"rich_text": [{"text": {"content": answerers}}]},
                 "質問日時": {"date": {"start": date_str}},
                 "回答テキスト": {"rich_text": [{"text": {"content": answers_combined[:2000]}}]},
+                "サービス": {"rich_text": [{"text": {"content": parsed["service"]}}]},
+                "URL": {"url": slack_url},
             }
             children = [
                 {
