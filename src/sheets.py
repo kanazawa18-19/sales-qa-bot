@@ -198,6 +198,7 @@ class SheetsClient:
             self.sheet.values().batchUpdate(
                 spreadsheetId=self.spreadsheet_id,
                 body={"valueInputOption": "RAW", "data": [
+                    {"range": f"{self.sheet_name}!A{existing_row}", "values": [[parsed["service"]]]},
                     {"range": f"{self.sheet_name}!D{existing_row}", "values": [[slack_url]]},
                     {"range": f"{self.sheet_name}!F{existing_row}", "values": [[answerers]]},
                     {"range": f"{self.sheet_name}!J{existing_row}", "values": [[answers_text]]},
