@@ -11,6 +11,10 @@ on:
 permissions:
   actions: write  # 自己再起動のために必要
 
+concurrency:
+  group: sales-qa-bot
+  cancel-in-progress: true
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
