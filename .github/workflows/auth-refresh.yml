@@ -16,9 +16,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install notebooklm-py
-        run: |
-          pip install notebooklm-py
-          python -m playwright install chromium --with-deps
+        run: pip install notebooklm-py
 
       - name: Write storage JSON
         env:
