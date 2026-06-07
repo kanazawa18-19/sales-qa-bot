@@ -1,0 +1,37 @@
+name: Refresh NotebookLM Auth
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 毎時
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install notebooklm-py
+        run: |
+          pip install notebooklm-py
+          python -m playwright install chromium --with-deps
+
+      - name: Write storage JSON
+        env:
+          STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+        run: echo "$STORAGE_JSON" > /tmp/storage.json
+
+      - name: Refresh auth
+        run: python -m notebooklm --storage /tmp/storage.json auth refresh
+
+      - name: Update NOTEBOOKLM_STORAGE_JSON secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set NOTEBOOKLM_STORAGE_JSON \
+            --repo "${{ github.repository }}" \
+            < /tmp/storage.json
