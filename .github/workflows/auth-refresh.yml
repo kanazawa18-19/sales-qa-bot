@@ -21,10 +21,12 @@ jobs:
       - name: Write storage JSON
         env:
           STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
-        run: echo "$STORAGE_JSON" > /tmp/storage.json
+        run: |
+          mkdir -p /home/runner/.notebooklm/profiles/default
+          echo "$STORAGE_JSON" > /home/runner/.notebooklm/profiles/default/storage_state.json
 
       - name: Refresh auth
-        run: python -m notebooklm --storage /tmp/storage.json auth refresh
+        run: python -m notebooklm auth refresh
 
       - name: Update NOTEBOOKLM_STORAGE_JSON secret
         env:
@@ -32,4 +34,4 @@ jobs:
         run: |
           gh secret set NOTEBOOKLM_STORAGE_JSON \
             --repo "${{ github.repository }}" \
-            < /tmp/storage.json
+            < /home/runner/.notebooklm/profiles/default/storage_state.json
