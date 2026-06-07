@@ -2,7 +2,7 @@ name: Refresh NotebookLM Auth
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 毎時
+    - cron: '*/5 * * * *'  # 5分ごと
   workflow_dispatch:
 
 jobs:
