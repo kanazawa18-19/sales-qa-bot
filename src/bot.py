@@ -142,8 +142,8 @@ def run_catchup():
 
         last_ts = sheets.get_last_processed_ts()
         if not last_ts:
-            last_ts = str(time.time() - 3600)
-            logger.info("No last_ts found, looking back 1 hour")
+            last_ts = str(time.time() - 7 * 24 * 3600)
+            logger.info("No last_ts found, looking back 7 days")
         else:
             logger.info(f"Catching up missed messages since ts={last_ts}")
 
