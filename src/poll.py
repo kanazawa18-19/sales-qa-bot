@@ -33,6 +33,7 @@ def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
 
 def capture_qa_threads(slack, sheets, notion, channel, oldest):
     messages = get_history(slack, channel, oldest)
+    logger.info(f"QA catch-up: {len(messages)} messages found (oldest={oldest})")
     seen = set()
 
     for msg in messages:
@@ -60,28 +61,40 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
     if not ai_channel:
         return
 
-    for msg in get_history(slack, ai_channel, oldest):
-        if msg.get("subtype") in ("channel_join", "channel_leave"):
+    msgs = get_history(slack, ai_channel, oldest)
+    logger.info(f"AI channel catch-up: {len(msgs)} messages found (oldest={oldest}, own_bot_id={own_bot_id})")
+
+    for msg in msgs:
+        ts = msg.get("ts")
+        subtype = msg.get("subtype")
+        bot_id = msg.get("bot_id")
+        user = msg.get("user")
+        text_raw = msg.get("text", "")
+        thread_ts = msg.get("thread_ts")
+
+        if subtype in ("channel_join", "channel_leave"):
+            logger.debug(f"Skip {ts}: subtype={subtype}")
             continue
-        # スレッド返信は無視（最初の投稿のみ対象）
-        if msg.get("thread_ts") and msg.get("thread_ts") != msg.get("ts"):
+        if thread_ts and thread_ts != ts:
+            logger.debug(f"Skip {ts}: thread reply")
             continue
-        # own_bot_id指定時は自分自身のみスキップ（ワークフローbot等は対象にする）
         if own_bot_id is not None:
-            if msg.get("bot_id") == own_bot_id or msg.get("user") == bot_user_id:
+            if bot_id == own_bot_id or user == bot_user_id:
+                logger.debug(f"Skip {ts}: own bot (bot_id={bot_id}, user={user})")
                 continue
         else:
-            if msg.get("bot_id") or msg.get("user") == bot_user_id:
+            if bot_id or user == bot_user_id:
+                logger.debug(f"Skip {ts}: any bot")
                 continue
 
-        ts = msg.get("ts")
-        text = msg.get("text", "").strip()
+        text = text_raw.strip()
         if not text:
+            logger.info(f"Skip {ts}: empty text (bot_id={bot_id}, user={user}, blocks={bool(msg.get('blocks'))})")
             continue
 
-        # すでにbotが返信済みならスキップ
         thread_msgs = get_thread(slack, ai_channel, ts)
         if any(m.get("user") == bot_user_id for m in thread_msgs[1:]):
+            logger.debug(f"Skip {ts}: already replied")
             continue
 
         try:
