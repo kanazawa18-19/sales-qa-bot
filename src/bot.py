@@ -149,8 +149,8 @@ def run_catchup():
 
         if QA_CHANNEL_ID:
             capture_qa_threads(slack, sheets, notion, QA_CHANNEL_ID, last_ts)
-        handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts)
-        handle_ai_mentions(slack, sheets, ai, bot_user_id, last_ts)
+        handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts, own_bot_id=_bot_id)
+        handle_ai_mentions(slack, sheets, ai, bot_user_id, last_ts, own_bot_id=_bot_id)
 
         sheets.save_last_processed_ts(str(time.time()))
         logger.info("Catch-up complete")

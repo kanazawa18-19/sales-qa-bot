@@ -55,7 +55,7 @@ def capture_qa_threads(slack, sheets, notion, channel, oldest):
         logger.info(f"Saved thread {thread_ts} ({len(answer_msgs)} answers)")
 
 
-def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest):
+def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
     ai_channel = os.environ.get("AI_CHANNEL_ID")
     if not ai_channel:
         return
@@ -66,8 +66,13 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest):
         # スレッド返信は無視（最初の投稿のみ対象）
         if msg.get("thread_ts") and msg.get("thread_ts") != msg.get("ts"):
             continue
-        if msg.get("bot_id") or msg.get("user") == bot_user_id:
-            continue
+        # own_bot_id指定時は自分自身のみスキップ（ワークフローbot等は対象にする）
+        if own_bot_id is not None:
+            if msg.get("bot_id") == own_bot_id or msg.get("user") == bot_user_id:
+                continue
+        else:
+            if msg.get("bot_id") or msg.get("user") == bot_user_id:
+                continue
 
         ts = msg.get("ts")
         text = msg.get("text", "").strip()
@@ -92,7 +97,7 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest):
             logger.error(f"AI failed for AI channel message {ts}: {e}")
 
 
-def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest):
+def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
     try:
         channels = [
             c for c in slack.conversations_list(types="public_channel,private_channel", limit=100).get("channels", [])
@@ -107,7 +112,10 @@ def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest):
         for msg in get_history(slack, channel_id, oldest):
             if f"<@{bot_user_id}>" not in msg.get("text", ""):
                 continue
-            if msg.get("bot_id"):
+            if own_bot_id is not None:
+                if msg.get("bot_id") == own_bot_id or msg.get("user") == bot_user_id:
+                    continue
+            elif msg.get("bot_id"):
                 continue
 
             thread_ts = msg.get("thread_ts") or msg.get("ts")
