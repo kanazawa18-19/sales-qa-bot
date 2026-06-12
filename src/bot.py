@@ -1,12 +1,15 @@
 import os
 import ssl
+import time
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_sdk import WebClient
 
 from sheets import SheetsClient
 from notion_client_wrapper import NotionClient
 from ai_assistant import AIAssistant
+from poll import capture_qa_threads, handle_ai_channel, handle_ai_mentions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -132,6 +135,30 @@ def handle_mention(event, say, client):
         say(text="回答の生成に失敗しました。しばらくしてから再試行してください。", thread_ts=thread_ts)
 
 
+def run_catchup():
+    try:
+        slack = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+        bot_user_id = slack.auth_test()["user_id"]
+
+        last_ts = sheets.get_last_processed_ts()
+        if not last_ts:
+            last_ts = str(time.time() - 3600)
+            logger.info("No last_ts found, looking back 1 hour")
+        else:
+            logger.info(f"Catching up missed messages since ts={last_ts}")
+
+        if QA_CHANNEL_ID:
+            capture_qa_threads(slack, sheets, notion, QA_CHANNEL_ID, last_ts)
+        handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts)
+        handle_ai_mentions(slack, sheets, ai, bot_user_id, last_ts)
+
+        sheets.save_last_processed_ts(str(time.time()))
+        logger.info("Catch-up complete")
+    except Exception as e:
+        logger.error(f"Catch-up failed: {e}", exc_info=True)
+
+
 if __name__ == "__main__":
+    run_catchup()
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
     handler.start()

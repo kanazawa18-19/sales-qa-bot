@@ -1,6 +1,8 @@
 name: Sales QA Bot
 
 on:
+  schedule:
+    - cron: '*/35 * * * *'  # 自己再起動が途切れた場合のフォールバック
   workflow_dispatch:
   push:
     branches: [main]
