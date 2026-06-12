@@ -16,11 +16,29 @@ POLL_INTERVAL = 30       # 30秒ごとにSlackを確認
 
 
 def get_history(slack: WebClient, channel: str, oldest: str) -> list[dict]:
+    """oldestより新しいメッセージを全件返す（Slack APIのoldestパラメータは使わずPython側でフィルタ）"""
+    cutoff = float(oldest)
+    collected = []
+    cursor = None
     try:
-        return slack.conversations_history(channel=channel, oldest=oldest, limit=100).get("messages", [])
+        while True:
+            kwargs = {"channel": channel, "limit": 200}
+            if cursor:
+                kwargs["cursor"] = cursor
+            result = slack.conversations_history(**kwargs)
+            for msg in result.get("messages", []):
+                if float(msg.get("ts", "0")) >= cutoff:
+                    collected.append(msg)
+                else:
+                    return collected  # メッセージは降順なのでcutoff以前になったら終了
+            if not result.get("has_more"):
+                break
+            cursor = result.get("response_metadata", {}).get("next_cursor")
+            if not cursor:
+                break
     except SlackApiError as e:
         logger.error(f"history error {channel}: {e}")
-        return []
+    return collected
 
 
 def extract_text(msg: dict) -> str:
