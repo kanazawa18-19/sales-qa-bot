@@ -23,6 +23,30 @@ def get_history(slack: WebClient, channel: str, oldest: str) -> list[dict]:
         return []
 
 
+def extract_text(msg: dict) -> str:
+    """textフィールドが空のワークフロー投稿もblocksから本文を抽出する"""
+    text = msg.get("text", "").strip()
+    if text:
+        return text
+    for block in msg.get("blocks", []):
+        btype = block.get("type")
+        if btype == "section" and block.get("text"):
+            text += block["text"].get("text", "") + "\n"
+        elif btype == "rich_text":
+            for section in block.get("elements", []):
+                for elem in section.get("elements", []):
+                    if elem.get("type") == "text":
+                        text += elem.get("text", "")
+    if text:
+        return text.strip()
+    for att in msg.get("attachments", []):
+        if att.get("text"):
+            text += att["text"] + "\n"
+        elif att.get("pretext"):
+            text += att["pretext"] + "\n"
+    return text.strip()
+
+
 def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
     try:
         return slack.conversations_replies(channel=channel, ts=thread_ts, limit=200).get("messages", [])
@@ -87,7 +111,7 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
                 logger.debug(f"Skip {ts}: any bot")
                 continue
 
-        text = text_raw.strip()
+        text = extract_text(msg)
         if not text:
             logger.info(f"Skip {ts}: empty text (bot_id={bot_id}, user={user}, blocks={bool(msg.get('blocks'))})")
             continue
