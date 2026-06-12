@@ -147,6 +147,21 @@ def run_catchup():
         else:
             logger.info(f"Catching up missed messages since ts={last_ts}")
 
+        # チャンネルアクセス診断
+        if QA_CHANNEL_ID:
+            try:
+                info = slack.conversations_info(channel=QA_CHANNEL_ID)
+                ch = info.get("channel", {})
+                logger.info(f"Channel info: id={ch.get('id')}, name={ch.get('name')}, is_member={ch.get('is_member')}, is_private={ch.get('is_private')}")
+                latest = slack.conversations_history(channel=QA_CHANNEL_ID, limit=1)
+                latest_msgs = latest.get("messages", [])
+                logger.info(f"Latest message test (no filter): {len(latest_msgs)} msgs, has_more={latest.get('has_more')}")
+                if latest_msgs:
+                    m = latest_msgs[0]
+                    logger.info(f"  → ts={m.get('ts')}, text={repr(m.get('text','')[:80])}, bot_id={m.get('bot_id')}")
+            except Exception as diag_e:
+                logger.error(f"Channel diagnostic failed: {diag_e}")
+
         if QA_CHANNEL_ID:
             capture_qa_threads(slack, sheets, notion, QA_CHANNEL_ID, last_ts)
         handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts, own_bot_id=_bot_id)
