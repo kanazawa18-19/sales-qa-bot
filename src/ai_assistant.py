@@ -21,8 +21,7 @@ SYSTEM_PROMPT = """あなたは営業支援AIアシスタントです。
 
 画像に関するルール:
 - 質問に画像が添付されている場合は、その内容を踏まえて回答する
-- 回答の参考になる画像URLがある場合（質問の添付画像・過去Q&Aの関連画像）は、回答末尾に「参考画像: {URL}」の形式で記載する
-- 関係ない場合は画像URLを出力しない
+- 画像URLは回答テキストに含めない（システムが自動で末尾に付与する）
 """
 
 
@@ -52,10 +51,11 @@ class AIAssistant:
         service_materials: str = "",
         image_urls: list[str] | None = None,
         image_data: list[tuple[str, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, list[str]]:
+        """回答テキストと、参照Q&Aに紐づく画像URLリストのタプルを返す"""
         if self._use_notebooklm:
             try:
-                return asyncio.run(self._ask_notebooklm(user_question))
+                return asyncio.run(self._ask_notebooklm(user_question)), []
             except Exception as e:
                 logger.error(f"NotebookLM failed, falling back to Claude: {e}")
 
@@ -81,9 +81,9 @@ class AIAssistant:
         service_materials: str,
         image_urls: list[str] | None = None,
         image_data: list[tuple[str, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, list[str]]:
         corrections_context = self._build_corrections_context(corrections)
-        qa_context = self._build_qa_context(qa_data)
+        qa_context, ref_image_urls = self._build_qa_context(qa_data, user_question)
 
         text = f"""【営業メンバーからの質問】
 {user_question}
@@ -96,8 +96,6 @@ class AIAssistant:
 """
         if service_materials:
             text += f"\n【サービス資料】\n{service_materials}"
-        if image_urls:
-            text += "\n\n【質問に添付された画像URL】\n" + "\n".join(image_urls)
 
         content: list = []
         for mime_type, b64_data in (image_data or [])[:3]:
@@ -113,7 +111,7 @@ class AIAssistant:
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": content}],
         )
-        return message.content[0].text
+        return message.content[0].text, ref_image_urls
 
     def _build_corrections_context(self, corrections: list[dict]) -> str:
         if not corrections:
@@ -127,10 +125,26 @@ class AIAssistant:
             lines.append("")
         return "\n".join(lines)
 
-    def _build_qa_context(self, qa_data: list[dict]) -> str:
+    @staticmethod
+    def _relevance_score(q1: str, q2: str) -> int:
+        """4文字以上の共通部分文字列の数で関連度をスコアリング（日本語対応）"""
+        if not q1 or not q2:
+            return 0
+        return sum(1 for i in range(len(q1) - 3) if q1[i:i+4] in q2)
+
+    def _build_qa_context(self, qa_data: list[dict], user_question: str = "") -> tuple[str, list[str]]:
         if not qa_data:
-            return "（まだQ&Aデータがありません）"
+            return "（まだQ&Aデータがありません）", []
         lines = []
+
+        # 画像付きQ&Aのうち関連度上位3件の画像URLを収集
+        with_images = [(qa, self._relevance_score(user_question, qa["question"])) for qa in qa_data if qa.get("image_urls")]
+        with_images.sort(key=lambda x: x[1], reverse=True)
+        ref_image_urls: list[str] = []
+        for qa, score in with_images[:3]:
+            if score > 0:
+                ref_image_urls.extend(qa["image_urls"])
+
         for i, qa in enumerate(qa_data[-100:], 1):
             service = qa.get("service", "")
             prefix = f"[{service}] " if service else ""
@@ -140,4 +154,4 @@ class AIAssistant:
             if qa.get("image_urls"):
                 lines.append(f"関連画像: {', '.join(qa['image_urls'])}")
             lines.append("")
-        return "\n".join(lines)
+        return "\n".join(lines), ref_image_urls

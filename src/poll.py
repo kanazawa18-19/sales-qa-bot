@@ -102,6 +102,8 @@ def capture_qa_threads(slack, sheets, notion, channel, oldest):
         question_msg = {**thread_msgs[0], "channel": channel}
         answer_msgs = [m for m in thread_msgs[1:] if not m.get("bot_id")]
         image_urls = extract_image_urls(thread_msgs[0])
+        for ans in answer_msgs:
+            image_urls.extend(extract_image_urls(ans))
 
         sheets.upsert_qa(thread_ts, question_msg, answer_msgs, image_urls=image_urls)
         notion.upsert_qa(thread_ts, question_msg, answer_msgs)
@@ -151,13 +153,15 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
 
         image_urls = extract_image_urls(msg)
         try:
-            answer = ai.answer(
+            answer, ref_images = ai.answer(
                 text,
                 sheets.get_all_qa(),
                 sheets.get_corrections(),
                 os.environ.get("SERVICE_MATERIALS_TEXT", ""),
                 image_urls=image_urls,
             )
+            if ref_images:
+                answer += "\n\n参考画像:\n" + "\n".join(ref_images)
             slack.chat_postMessage(channel=ai_channel, thread_ts=ts, text=answer)
             logger.info(f"AI replied in AI channel: {ts}")
         except Exception as e:
@@ -200,13 +204,15 @@ def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
 
             image_urls = extract_image_urls(msg)
             try:
-                answer = ai.answer(
+                answer, ref_images = ai.answer(
                     user_question,
                     sheets.get_all_qa(),
                     sheets.get_corrections(),
                     os.environ.get("SERVICE_MATERIALS_TEXT", ""),
                     image_urls=image_urls,
                 )
+                if ref_images:
+                    answer += "\n\n参考画像:\n" + "\n".join(ref_images)
                 slack.chat_postMessage(channel=channel_id, thread_ts=thread_ts, text=answer)
                 logger.info(f"AI replied in {channel_id}")
             except Exception as e:

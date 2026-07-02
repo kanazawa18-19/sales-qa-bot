@@ -79,6 +79,9 @@ def capture_thread(client, channel: str, thread_ts: str):
         answer_msgs = [m for m in answer_msgs if not m.get("bot_id")]
 
         image_urls, _ = _extract_image_info(question_msg)
+        for ans in answer_msgs:
+            ans_urls, _ = _extract_image_info(ans)
+            image_urls.extend(ans_urls)
         sheets.upsert_qa(thread_ts, question_msg, answer_msgs, image_urls=image_urls)
         notion.upsert_qa(thread_ts, question_msg, answer_msgs)
         logger.info(f"Captured thread {thread_ts}: {len(answer_msgs)} answers, {len(image_urls)} images")
@@ -123,10 +126,12 @@ def handle_message(event, client, say):
             try:
                 qa_data = sheets.get_all_qa()
                 corrections = sheets.get_corrections()
-                answer = ai.answer(
+                answer, ref_images = ai.answer(
                     text, qa_data, corrections, SERVICE_MATERIALS,
                     image_urls=image_urls, image_data=image_data,
                 )
+                if ref_images:
+                    answer += "\n\n参考画像:\n" + "\n".join(ref_images)
                 logger.info("AI answer ready, posting to Slack")
                 say(text=answer, thread_ts=ts)
                 logger.info("Posted to Slack")
@@ -165,10 +170,12 @@ def handle_mention(event, say, client):
     try:
         qa_data = sheets.get_all_qa()
         corrections = sheets.get_corrections()
-        answer = ai.answer(
+        answer, ref_images = ai.answer(
             user_question, qa_data, corrections, SERVICE_MATERIALS,
             image_urls=image_urls, image_data=image_data,
         )
+        if ref_images:
+            answer += "\n\n参考画像:\n" + "\n".join(ref_images)
         say(text=answer, thread_ts=thread_ts)
     except Exception as e:
         logger.error(f"AI answer failed: {e}")
