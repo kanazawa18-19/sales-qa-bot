@@ -170,7 +170,7 @@ class SheetsClient:
                 return i + 1
         return None
 
-    def upsert_qa(self, thread_ts: str, question_msg: dict, answer_msgs: list[dict]):
+    def upsert_qa(self, thread_ts: str, question_msg: dict, answer_msgs: list[dict], image_urls: list[str] | None = None):
         raw_text = question_msg.get("text", "")
         questioner = question_msg.get("user", "unknown")
         channel = question_msg.get("channel", "")
@@ -185,6 +185,8 @@ class SheetsClient:
             m.get("text", "") for m in answer_msgs if m.get("text")
         )
 
+        images_str = "\n".join(image_urls) if image_urls else ""
+
         row_data = [
             parsed["service"],      # A: サービス
             parsed["question"],     # B: 質問内容
@@ -192,7 +194,7 @@ class SheetsClient:
             slack_url,              # D: URL
             questioner,             # E: 質問者
             answerers,              # F: 回答者
-            "",                     # G: 画像
+            images_str,             # G: 画像
             date,                   # H: 送信日時
             thread_ts,              # I: タイムスタンプ
             answers_text,           # J: 回答テキスト
@@ -200,14 +202,17 @@ class SheetsClient:
 
         existing_row = self._find_row_by_thread_ts(thread_ts)
         if existing_row:
+            data = [
+                {"range": f"{self.sheet_name}!A{existing_row}", "values": [[parsed["service"]]]},
+                {"range": f"{self.sheet_name}!D{existing_row}", "values": [[slack_url]]},
+                {"range": f"{self.sheet_name}!F{existing_row}", "values": [[answerers]]},
+                {"range": f"{self.sheet_name}!J{existing_row}", "values": [[answers_text]]},
+            ]
+            if images_str:
+                data.append({"range": f"{self.sheet_name}!G{existing_row}", "values": [[images_str]]})
             self.sheet.values().batchUpdate(
                 spreadsheetId=self.spreadsheet_id,
-                body={"valueInputOption": "RAW", "data": [
-                    {"range": f"{self.sheet_name}!A{existing_row}", "values": [[parsed["service"]]]},
-                    {"range": f"{self.sheet_name}!D{existing_row}", "values": [[slack_url]]},
-                    {"range": f"{self.sheet_name}!F{existing_row}", "values": [[answerers]]},
-                    {"range": f"{self.sheet_name}!J{existing_row}", "values": [[answers_text]]},
-                ]},
+                body={"valueInputOption": "RAW", "data": data},
             ).execute()
         else:
             self.sheet.values().append(
@@ -245,10 +250,12 @@ class SheetsClient:
             question = row[1] if len(row) > 1 else ""  # 質問内容
             if not question:
                 continue
+            raw_images = row[6] if len(row) > 6 else ""
             qa_list.append({
                 "service": row[0] if len(row) > 0 else "",
                 "question": question,
                 "answers": row[9] if len(row) > 9 else "",  # 回答テキスト
                 "date": row[7] if len(row) > 7 else "",     # 送信日時
+                "image_urls": [u for u in raw_images.split("\n") if u] if raw_images else [],
             })
         return qa_list

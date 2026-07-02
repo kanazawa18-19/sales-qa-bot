@@ -1,7 +1,9 @@
 import os
 import ssl
 import time
+import base64
 import logging
+import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
@@ -21,6 +23,35 @@ notion = NotionClient()
 ai = AIAssistant()
 
 _bot_id = app.client.auth_test().get("bot_id")
+
+
+def _extract_image_info(event: dict) -> tuple[list[str], list[tuple[str, str]]]:
+    """Slackイベントから画像のpermalink一覧とbase64データを返す"""
+    token = os.environ.get("SLACK_BOT_TOKEN", "")
+    urls: list[str] = []
+    image_data: list[tuple[str, str]] = []
+
+    for f in event.get("files", []):
+        if not f.get("mimetype", "").startswith("image/"):
+            continue
+        permalink = f.get("permalink", "")
+        if permalink:
+            urls.append(permalink)
+        download_url = f.get("url_private_download") or f.get("url_private")
+        if download_url:
+            try:
+                resp = requests.get(
+                    download_url,
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    mime = f.get("mimetype", "image/jpeg")
+                    image_data.append((mime, base64.standard_b64encode(resp.content).decode()))
+            except Exception as e:
+                logger.warning(f"Image download failed ({download_url}): {e}")
+
+    return urls, image_data
 
 
 def _rebuild_sheets():
@@ -47,9 +78,10 @@ def capture_thread(client, channel: str, thread_ts: str):
         # Bot自身の返答は除外
         answer_msgs = [m for m in answer_msgs if not m.get("bot_id")]
 
-        sheets.upsert_qa(thread_ts, question_msg, answer_msgs)
+        image_urls, _ = _extract_image_info(question_msg)
+        sheets.upsert_qa(thread_ts, question_msg, answer_msgs, image_urls=image_urls)
         notion.upsert_qa(thread_ts, question_msg, answer_msgs)
-        logger.info(f"Captured thread {thread_ts}: {len(answer_msgs)} answers")
+        logger.info(f"Captured thread {thread_ts}: {len(answer_msgs)} answers, {len(image_urls)} images")
     except Exception as e:
         logger.error(f"Failed to capture thread {thread_ts}: {e}")
 
@@ -86,11 +118,15 @@ def handle_message(event, client, say):
             return
 
         logger.info(f"Calling AI for: {text[:50]}")
+        image_urls, image_data = _extract_image_info(event)
         for attempt in range(2):
             try:
                 qa_data = sheets.get_all_qa()
                 corrections = sheets.get_corrections()
-                answer = ai.answer(text, qa_data, corrections, SERVICE_MATERIALS)
+                answer = ai.answer(
+                    text, qa_data, corrections, SERVICE_MATERIALS,
+                    image_urls=image_urls, image_data=image_data,
+                )
                 logger.info("AI answer ready, posting to Slack")
                 say(text=answer, thread_ts=ts)
                 logger.info("Posted to Slack")
@@ -125,10 +161,14 @@ def handle_mention(event, say, client):
 
     say(text="回答を生成中...", thread_ts=thread_ts)
 
+    image_urls, image_data = _extract_image_info(event)
     try:
         qa_data = sheets.get_all_qa()
         corrections = sheets.get_corrections()
-        answer = ai.answer(user_question, qa_data, corrections, SERVICE_MATERIALS)
+        answer = ai.answer(
+            user_question, qa_data, corrections, SERVICE_MATERIALS,
+            image_urls=image_urls, image_data=image_data,
+        )
         say(text=answer, thread_ts=thread_ts)
     except Exception as e:
         logger.error(f"AI answer failed: {e}")

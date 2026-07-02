@@ -18,6 +18,11 @@ SYSTEM_PROMPT = """あなたは営業支援AIアシスタントです。
 - 不明な場合は「確認が必要です」と正直に伝える
 - 箇条書きで読みやすく整理する
 - Slack向けに絶対にMarkdownの## や ### は使わない（*太字* や • 箇条書きは使ってよい）
+
+画像に関するルール:
+- 質問に画像が添付されている場合は、その内容を踏まえて回答する
+- 回答の参考になる画像URLがある場合（質問の添付画像・過去Q&Aの関連画像）は、回答末尾に「参考画像: {URL}」の形式で記載する
+- 関係ない場合は画像URLを出力しない
 """
 
 
@@ -45,6 +50,8 @@ class AIAssistant:
         qa_data: list[dict],
         corrections: list[dict] | None = None,
         service_materials: str = "",
+        image_urls: list[str] | None = None,
+        image_data: list[tuple[str, str]] | None = None,
     ) -> str:
         if self._use_notebooklm:
             try:
@@ -53,7 +60,10 @@ class AIAssistant:
                 logger.error(f"NotebookLM failed, falling back to Claude: {e}")
 
         if self._claude:
-            return self._ask_claude(user_question, qa_data, corrections or [], service_materials)
+            return self._ask_claude(
+                user_question, qa_data, corrections or [], service_materials,
+                image_urls=image_urls, image_data=image_data,
+            )
 
         raise RuntimeError("AI backend not configured. Set NOTEBOOKLM_* or ANTHROPIC_API_KEY.")
 
@@ -69,11 +79,13 @@ class AIAssistant:
         qa_data: list[dict],
         corrections: list[dict],
         service_materials: str,
+        image_urls: list[str] | None = None,
+        image_data: list[tuple[str, str]] | None = None,
     ) -> str:
         corrections_context = self._build_corrections_context(corrections)
         qa_context = self._build_qa_context(qa_data)
 
-        user_content = f"""【営業メンバーからの質問】
+        text = f"""【営業メンバーからの質問】
 {user_question}
 
 【確定正解データ】（最優先で参照すること）
@@ -83,13 +95,23 @@ class AIAssistant:
 {qa_context}
 """
         if service_materials:
-            user_content += f"\n【サービス資料】\n{service_materials}"
+            text += f"\n【サービス資料】\n{service_materials}"
+        if image_urls:
+            text += "\n\n【質問に添付された画像URL】\n" + "\n".join(image_urls)
+
+        content: list = []
+        for mime_type, b64_data in (image_data or [])[:3]:
+            content.append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": mime_type, "data": b64_data},
+            })
+        content.append({"type": "text", "text": text})
 
         message = self._claude.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
+            messages=[{"role": "user", "content": content}],
         )
         return message.content[0].text
 
@@ -115,5 +137,7 @@ class AIAssistant:
             lines.append(f"Q{i}: {prefix}{qa['question']}")
             if qa.get("answers"):
                 lines.append(f"A{i}: {qa['answers'][:500]}")
+            if qa.get("image_urls"):
+                lines.append(f"関連画像: {', '.join(qa['image_urls'])}")
             lines.append("")
         return "\n".join(lines)

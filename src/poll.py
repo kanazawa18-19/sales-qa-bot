@@ -41,6 +41,15 @@ def get_history(slack: WebClient, channel: str, oldest: str) -> list[dict]:
     return collected
 
 
+def extract_image_urls(msg: dict) -> list[str]:
+    """メッセージから画像ファイルのpermalinkを抽出する"""
+    return [
+        f["permalink"]
+        for f in msg.get("files", [])
+        if f.get("mimetype", "").startswith("image/") and f.get("permalink")
+    ]
+
+
 def extract_text(msg: dict) -> str:
     """textフィールドが空のワークフロー投稿もblocksから本文を抽出する"""
     text = msg.get("text", "").strip()
@@ -92,10 +101,11 @@ def capture_qa_threads(slack, sheets, notion, channel, oldest):
 
         question_msg = {**thread_msgs[0], "channel": channel}
         answer_msgs = [m for m in thread_msgs[1:] if not m.get("bot_id")]
+        image_urls = extract_image_urls(thread_msgs[0])
 
-        sheets.upsert_qa(thread_ts, question_msg, answer_msgs)
+        sheets.upsert_qa(thread_ts, question_msg, answer_msgs, image_urls=image_urls)
         notion.upsert_qa(thread_ts, question_msg, answer_msgs)
-        logger.info(f"Saved thread {thread_ts} ({len(answer_msgs)} answers)")
+        logger.info(f"Saved thread {thread_ts} ({len(answer_msgs)} answers, {len(image_urls)} images)")
 
 
 def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
@@ -139,12 +149,14 @@ def handle_ai_channel(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
             logger.debug(f"Skip {ts}: already replied")
             continue
 
+        image_urls = extract_image_urls(msg)
         try:
             answer = ai.answer(
                 text,
                 sheets.get_all_qa(),
                 sheets.get_corrections(),
                 os.environ.get("SERVICE_MATERIALS_TEXT", ""),
+                image_urls=image_urls,
             )
             slack.chat_postMessage(channel=ai_channel, thread_ts=ts, text=answer)
             logger.info(f"AI replied in AI channel: {ts}")
@@ -186,12 +198,14 @@ def handle_ai_mentions(slack, sheets, ai, bot_user_id, oldest, own_bot_id=None):
             if not user_question:
                 continue
 
+            image_urls = extract_image_urls(msg)
             try:
                 answer = ai.answer(
                     user_question,
                     sheets.get_all_qa(),
                     sheets.get_corrections(),
                     os.environ.get("SERVICE_MATERIALS_TEXT", ""),
+                    image_urls=image_urls,
                 )
                 slack.chat_postMessage(channel=channel_id, thread_ts=thread_ts, text=answer)
                 logger.info(f"AI replied in {channel_id}")
