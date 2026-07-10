@@ -256,6 +256,6 @@ class SheetsClient:
                 "question": question,
                 "answers": row[9] if len(row) > 9 else "",  # 回答テキスト
                 "date": row[7] if len(row) > 7 else "",     # 送信日時
-                "image_urls": [u for u in raw_images.split("\n") if u] if raw_images else [],
+                "image_urls": [u for u in raw_images.split("\n") if u.startswith("http")] if raw_images else [],
             })
         return qa_list
