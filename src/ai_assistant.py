@@ -106,12 +106,17 @@ class AIAssistant:
         content.append({"type": "text", "text": text})
 
         message = self._claude.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5",
+            # Sonnet 5はthinkingを省略するとadaptiveでONになる。ここは4.6時点と
+            # 同じ挙動（思考なし・max_tokens 1024）を保つため明示的に無効化する。
+            thinking={"type": "disabled"},
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": content}],
         )
-        return message.content[0].text, ref_image_urls
+        # thinkingが有効なモデルではcontent[0]がThinkingBlockになりうるため決め打ちしない
+        answer = "".join(b.text for b in message.content if b.type == "text")
+        return answer, ref_image_urls
 
     def _build_corrections_context(self, corrections: list[dict]) -> str:
         if not corrections:
