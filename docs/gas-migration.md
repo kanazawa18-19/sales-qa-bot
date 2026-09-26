@@ -23,7 +23,9 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 - 実GAS関数、外部API接続、AI返信、通知到達は未検証。Slack本人用テスト先とNotionテストDBも未準備。旧botはGitHub Actionsで実行中、4 workflowはactiveのまま。
 - NotebookLMの移行元IDはGitHub Secretのため未特定。ホームに「ホテルサービスマスター」（64ソース表示）はあるが、旧botの参照先である根拠はない。閲覧は自動承認審査で拒否され、資料本文は取得していない。対象URLの指定・閲覧承認が必要。
 
-次に必要なのは既存キーの保存場所の確認と、移行対象NotebookLMの特定。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
+2026-09-27追記：本人から[ホテルサービスマスター](https://notebook.google.com/notebook/ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0)のURL提示があり、閲覧を再開。セールスQAと提案資料の存在を確認。資料一覧は [移行対象一覧](evidence/gas-migration-20260927/notebook-sources.md) に保存。旧GitHub Secretとの同一性は未照合だが、今後の移行対象は本人提示URLを使う。
+
+次に必要なのは既存キーの保存場所の確認と、資料本文の移行。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
 
 ## 移行する機能と差異
 
