@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--project', default='salesqaconnect')
 parser.add_argument('--region', default='asia-northeast1')
 parser.add_argument('--image', required=True)
+parser.add_argument('--gas-owner', help='GAS時計を実行するGoogleアカウントのメール')
 parser.add_argument('--worker-url', required=True)
 a = parser.parse_args()
 p, region = a.project, a.region
@@ -17,6 +18,9 @@ def add(*args):
     commands.append(['gcloud', *args, '--project', p, '--quiet'])
 add('services','enable','run.googleapis.com','cloudtasks.googleapis.com','firestore.googleapis.com',
     'secretmanager.googleapis.com','artifactregistry.googleapis.com','cloudbuild.googleapis.com')
+add('artifacts','repositories','create','sales-qa','--repository-format','docker','--location',region)
+for name in ['sales-qa-signing-secret','sales-qa-slack-token','sales-qa-notebooklm']:
+    add('secrets','create',name,'--replication-policy','automatic')
 for name in ['sales-qa-receiver','sales-qa-worker','sales-qa-caller']:
     add('iam','service-accounts','create',name)
 # 専用のsalesqaconnectを使用し、他案件のプロジェクトへ広い権限を追加しない。
@@ -25,7 +29,7 @@ for member, role in [(worker,'roles/datastore.user')]:
 add('firestore','databases','create','--location',region,'--type','firestore-native')
 add('firestore','fields','ttls','update','expire_at','--collection-group','sales_qa_http_jobs','--enable-ttl')
 add('tasks','queues','create','sales-qa','--location',region,'--max-concurrent-dispatches','1',
-    '--max-dispatches-per-second','1','--max-attempts','8','--min-backoff','60s','--max-backoff','600s')
+    '--max-dispatches-per-second','1','--max-attempts','8','--max-retry-duration','1800s','--min-backoff','60s','--max-backoff','600s')
 add('tasks','queues','add-iam-policy-binding','sales-qa','--location',region,
     '--member','serviceAccount:'+receiver,'--role','roles/cloudtasks.enqueuer')
 add('iam','service-accounts','add-iam-policy-binding',caller,'--member','serviceAccount:'+receiver,'--role','roles/iam.serviceAccountUser')
@@ -46,6 +50,12 @@ add('run','deploy','sales-qa-receiver','--region',region,'--image',a.image,'--se
     '--allow-unauthenticated','--max-instances','2','--concurrency','10','--timeout','10',
     '--min-instances','0','--memory','256Mi','--set-env-vars',common+',HTTP_ROLE=receiver,HTTP_THREADS=10,TASKS_REGION='+region+',TASKS_QUEUE=sales-qa',
     '--set-secrets','SLACK_SIGNING_SECRET=sales-qa-signing-secret:latest')
-# 定期起動はgas/HttpClock.js。GAS実行者へqueue enqueuerとcallerのactAsを付与する。
+# 定期起動はgas/HttpClock.js。GAS実行者だけへ時計と監視に必要な権限を付与。
+if a.gas_owner:
+    add('tasks','queues','add-iam-policy-binding','sales-qa','--location',region,
+        '--member','user:'+a.gas_owner,'--role','roles/cloudtasks.enqueuer')
+    add('iam','service-accounts','add-iam-policy-binding',caller,
+        '--member','user:'+a.gas_owner,'--role','roles/iam.serviceAccountUser')
+    add('projects','add-iam-policy-binding',p,'--member','user:'+a.gas_owner,'--role','roles/datastore.viewer')
 for command in commands:
     print(shlex.join(command))

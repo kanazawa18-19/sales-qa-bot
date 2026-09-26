@@ -14,7 +14,7 @@ def valid_signature(raw, timestamp, signature, secret, now=None):
     except (ValueError, TypeError):
         return False
     expected = "v0=" + hmac.new(secret.encode(), b"v0:" + timestamp.encode() + b":" + raw, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+    return hmac.compare_digest(expected.encode(), signature.encode("utf-8", "replace"))
 
 
 def create_receiver(secret, policy, queue):

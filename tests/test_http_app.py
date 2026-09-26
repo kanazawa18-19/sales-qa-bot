@@ -96,11 +96,11 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(store.claim('key', 'owner2', 200), 'busy')
         self.assertEqual(store.claim('key', 'owner2', 500), 'claimed')
         with self.assertRaises(RuntimeError):
-            store.posting('key', 'owner1')
+            store.posting('key', 'owner1', now=200)
     def test_crash_after_posting_is_quarantined(self):
         store = MemoryStore()
         store.claim('key', 'owner1', 100)
-        store.posting('key', 'owner1')
+        store.posting('key', 'owner1', now=200)
         self.assertEqual(store.claim('key', 'owner2', 200), 'busy')
         self.assertEqual(store.claim('key', 'owner2', 500), 'uncertain')
     def test_queue_saved_but_ack_lost_is_idempotent(self):
@@ -113,6 +113,12 @@ class HttpTests(unittest.TestCase):
         self.queue.enqueue = enqueue
         self.assertEqual(self.post().status_code, 200)
         self.assertEqual(len(self.queue.items), 1)
+
+    def test_expiring_lease_cannot_post(self):
+        store = MemoryStore()
+        store.claim('key', 'owner', 100)
+        with self.assertRaises(RuntimeError):
+            store.posting('key', 'owner', now=410)
 
     def test_auth_recovery_resets_alert(self):
         store = MemoryStore()

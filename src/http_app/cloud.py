@@ -1,5 +1,6 @@
 """Cloud TasksとFirestoreの永続化。ブラウザ情報は取り扱わない。"""
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 
@@ -68,8 +69,14 @@ class FirestoreStore:
             return target, {"state": target, "updated_at": datetime.now(timezone.utc), **extra}
         return self._change(key, update)
 
-    def posting(self, key, owner, **metadata):
-        return self._owned(key, owner, "posting", **metadata)
+    def posting(self, key, owner, now=None, **metadata):
+        now = time.time() if now is None else now
+        def update(old):
+            if old.get("owner") != owner or old.get("lease_until", 0) < now + 60:
+                raise RuntimeError("LEASE_LOST")
+            return "posting", {"state": "posting", "lease_until": now + 60,
+                               "updated_at": datetime.now(timezone.utc), **metadata}
+        return self._change(key, update)
 
     def finish(self, key, owner, state, **extra):
         return self._owned(key, owner, state, **extra)

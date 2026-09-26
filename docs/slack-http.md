@@ -36,7 +36,7 @@ GAS時計（5分） → Cloud Tasks → 非公開ワーカー → NotebookLM認�
 
 1. salesqaconnectへ課金先を紐付ける。使用量課金が発生する。既存の課金設定を勝手に変更しない。
 2. 専用Secretを作る：`sales-qa-signing-secret`、`sales-qa-slack-token`、`sales-qa-notebooklm`。値はローカルの安全なファイルからgcloudへ渡し、出力やGitへ残さない。Google Cloudへの認証情報保存は具体的な宛先を示して承認を得る。
-3. Artifact Registryに専用リポジトリを作り、`deploy/cloudbuild-http.yaml`でDockerfile.httpをビルドする。`.dockerignore`はコードとrequirementsだけを送る許可リスト。
+3. Artifact Registryに専用リポジトリを作り、`deploy/cloudbuild-http.yaml`でDockerfile.httpをビルドする。`.gcloudignore`と`.dockerignore`で送信対象を許可リスト化。gcloud meta list-files-for-uploadで秘密ファイルが含まれないことを確認する。
 4. `python deploy/cloudrun-plan.py --image <イメージURL> --worker-url <固定のCloud RunサービスURL>`で構築コマンドを出力して確認する。このスクリプトは表示専用。既存リソースがあればcreateではなく確認してupdateする。
 5. Worker URLはCloud Runの決定的URLか初回配置で得られるURLを使う。受信URL/worker URL/IDトークンaudienceを一致させる。非公開ワーカーにallUsers権限を付けない。
 6. 署名付き架空イベントで受付時間、Tasks配送、Firestore排他、HTTPタイムアウト時の隔離を確認。本人DMで実回答を照合する。
@@ -68,3 +68,5 @@ GAS時計（5分） → Cloud Tasks → 非公開ワーカー → NotebookLM認�
 管理者DMの対象スレッドリンクと処理IDで照合する。回答がすでにある場合は、その返信時刻を台帳のreply_tsへ記録しstateをdoneへする。未送信を確認できた場合だけ、台帳をretryへ戻して対象質問を再登録する。確認できない場合はuncertainのまま残す。処理IDから元の質問本文は復元できないため、Slackスレッドを正本として使う。
 
 初期DM試験では質問元への「生成中」等の追加投稿を省く。障害は管理者DMで対象リンクとともに通知する。共同利用への公開前に、質問者への受付・最終失敗案内を実装・確認する。本人DM試験の成功だけで共同利用可能とは判定しない。
+
+回答生成は180秒上限。送信前に処理権の残り時間を確認する。認証更新は失敗を通知・記録して200を返し、次のGAS周期で再試行する。古い認証タスクを積み上げない。回答キューは最大8回、再試行期間1800秒を指定する（Cloud Tasks側の停止条件の組合せに従う）。

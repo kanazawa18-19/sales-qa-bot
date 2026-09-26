@@ -1,0 +1,11 @@
+*
+!Dockerfile.http
+!.dockerignore
+!requirements.txt
+!requirements-http.txt
+!src/
+!src/**
+!deploy/
+!deploy/cloudbuild-http.yaml
+src/**/__pycache__/
+src/**/*.pyc

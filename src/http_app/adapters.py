@@ -49,7 +49,9 @@ class NotebookAnswers:
             path.write_text(self.secrets.read("sales-qa-notebooklm"))
             path.chmod(0o600)
             # 接続方式は既存と同じ。Claudeへの切替は行わない。
-            return asyncio.run(ask(str(path)))
+            async def bounded():
+                return await asyncio.wait_for(ask(str(path)), timeout=180)
+            return asyncio.run(bounded())
 
     def refresh(self):
         import json

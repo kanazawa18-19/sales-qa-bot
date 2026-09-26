@@ -1,0 +1,101 @@
+BLOCKER
+1. domain.py において「本人DM限定」のメッセージが全て無視される
+
+根拠: policy.owner_only が True の場合、plan() は channel != policy.owner_dm の検証を通過した後に mention or (channel == policy.ai_channel and thread == ts) を判定します。しかし、SlackのDMメッセージイベント（type: "message"）は app_mention ではなく、DMのチャンネルID（D...）も通常 policy.ai_channel（C...等）とは一致しません。このため、本人DM内での投稿は常に空配列 [] と評価され、Botが一切応答しません。
+
+最小修正:
+
+Python
+# src/http_app/domain.py
+mention = event.get("type") == "app_mention"
+is_owner_dm = policy.owner_only and channel == policy.owner_dm
+if mention or (channel == policy.ai_channel and thread == ts) or is_owner_dm:
+    text = text_of(event).replace(f"<@{policy.bot_user_id}>", "").strip()
+    if text:
+        out.append(work("answer", text))
+
+2. gas/HttpClock.js の Cloud Tasks API リクエスト構造エラー
+
+根拠: Cloud Tasks REST API (v2) において dispatchDeadline は Task オブジェクト直下のフィールドです。HttpClock.js の tickHttpNotebookAuth では httpRequest オブジェクトの内部に配置されているため、Cloud Tasks API から 400 Bad Request（Unknown field 'dispatchDeadline' in HttpRequest）が返され、タスク登録に失敗します。
+
+最小修正:
+
+JavaScript
+// gas/HttpClock.js (tickHttpNotebookAuth 内)
+httpGoogle_('https://cloudtasks.googleapis.com/v2/' + parent + '/tasks', {task: {
+  name: taskName,
+  dispatchDeadline: '300s',
+  httpRequest: {httpMethod: 'POST', url: p.HTTP_WORKER_URL + '/tasks/refresh-auth',
+    oidcToken: {serviceAccountEmail: p.HTTP_TASKS_SERVICE_ACCOUNT, audience: p.HTTP_WORKER_URL}}
+}});
+
+3. adapters.py の Secrets.prune における無効な Secret Manager フィルタ構文
+
+根拠: Secret Manager API の filter 構文（AIP-160）において state:(ENABLED OR DISABLED) は構文エラー（400 Invalid Argument）を引き起こします。refresh() の最後に self.secrets.prune() が呼ばれるため、毎回 API 例外が発生して認証更新プロセスがクラッシュし、トークン自動更新が行われなくなります。
+
+最小修正:
+
+Python
+# src/http_app/adapters.py
+def prune(self, name, keep=2):
+    if name != "sales-qa-notebooklm":
+        raise ValueError("AUTH_SECRET_ONLY")
+    resource = f"projects/{self.project}/secrets/{name}"
+    versions = list(self.client.list_secret_versions(
+        request={"parent": resource, "filter": "state:ENABLED OR state:DISABLED"}, timeout=15
+    ))
+    live = [v for v in versions if v.state.name != "DESTROYED"]
+    live.sort(key=lambda v: int(v.name.rsplit("/", 1)[1]), reverse=True)
+    for version in live[keep:]:
+        self.client.destroy_secret_version(request={"name": version.name}, timeout=15)
+
+WARN
+1. gas/HttpClock.js の OAuth スコープおよび初回ドキュメント未存在時のハンドリング
+
+根拠:
+
+ScriptApp.getOAuthToken() で GCP REST API（Cloud Tasks / Firestore）を呼び出す際、GASプロジェクトの appsscript.json に明示的なスコープ指定が無いと 403 Forbidden となります。
+
+checkHttpNotebookClock は Firestore ドキュメントを直接取得しますが、初回実行前などドキュメントが存在しない場合に 404 例外が発生し、ヘルスチェック結果が失敗状態（failed）として処理されます。
+
+最小修正: appsscript.json にスコープを追加し、httpGoogle_ 呼び出しで HTTP ステータスコードに応じた制御を行います。
+
+JavaScript
+// appsscript.json に以下を追加
+// "oauthScopes": ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/script.send_mail"]
+
+// gas/HttpClock.js (checkHttpNotebookClock 内)
+try {
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    muteHttpExceptions: true
+  });
+  var fields = (response.getResponseCode() === 200 ? JSON.parse(response.getContentText()).fields : {}) || {};
+  health.lastSuccess = Number((fields.last_success || {}).doubleValue || (fields.last_success || {}).integerValue || 0);
+} catch (e) {
+  health.ok = false;
+  health.code = String(e.message || 'HTTP_CLOCK_CHECK_FAILED').slice(0, 80);
+}
+
+2. server.py の refresh() における成功時ステータス表現
+
+根拠: 認証更新成功時に store.finish(key, owner, "retry", ...) のように state="retry" を設定しています。これは次回の store.claim() で再実行可能にするための実装ですが、正常完了したタスクのステータスが DB 上で常に "retry" と記録されるため、データ視認性および監視時に誤解を招く要因になります。
+
+最小修正:
+
+Python
+# src/http_app/server.py (/tasks/refresh-auth 内)
+store.finish(key, owner, "idle", last_success=time.time(), alert_states=[])
+
+INFO
+1. cloud.py における Cloud Tasks 登録時の RPC タイムアウト
+
+根拠: TaskQueue.enqueue() で self.client.create_task(..., timeout=1.5, retry=None) と 1.5 秒のタイムアウトが設定されています。ネットワークの揺らぎ等でタイムアウトが発生した場合、receiver.py 側で 503 を返して Slack に再送を委ねる構成のため機能上の整合性は保たれていますが、短時間の遅延で再送が発生しやすいため、必要に応じて timeout=3.0 程度への緩衝を検討してください。
+
+2. 公開予定の「受付/失敗案内」の実装ポイント
+
+根拠: receiver.py は Slack へのレスポンス遅延を防ぐため即座に HTTP 200 を返す設計となっています。今後追加予定の質問者への受付メッセージや生成失敗通知は、非同期で実行される worker.py の process() メソッド内（self.answer() の直前、および except Exception: ブロック内）から SlackIO を経由して返信する設計が最も適しています。
+
+
+

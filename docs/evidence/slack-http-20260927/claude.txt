@@ -1,0 +1,81 @@
+全体として、二重投稿を防ぐ排他の設計（posting 記録後は所有者が変わらず、再配送は uncertain で止まる）は筋が通っており、送信結果が不明な場合に再送しない方針もコード上で守られています。一方で、準備版の本人DM経路が現状の条件では動かない点を BLOCKER とし、時間予算と再試行設計に WARN を付けました。
+
+ID	区分	箇所	要点
+B-1	BLOCKER	domain.plan	本人DM限定モードで回答対象が生成されない
+W-1	WARN	worker / cloud.posting / adapters	回答生成に時間上限がなく、posting 時点の残りリース時間を保証していない
+W-2	WARN	Cloud Tasks設定 / worker	再試行の上限がコード化されておらず、最終失敗が通知されない
+W-3	WARN	refresh-auth / HttpClock.js	5分周期の認証更新が 503 で再試行を重ね、回答と同じキューとスレッドを占有する
+W-4	WARN	Dockerfile / Cloud Run設定	gunicorn の1スレッドと Cloud Run の既定同時実行数が噛み合わない
+I-1〜I-7	INFO	各所	排他の評価、HTTP応答コード、ID token 検証、監視、GAS、公開前の項目
+
+B-1　本人DM限定モードで回答が生成されない（domain.plan）
+
+根拠：owner_only の条件を満たすには channel == owner_dm である必要があります。一方で、回答を生成する条件は「app_mention であること」または「channel == ai_channel かつトップレベル投稿であること」です。Slack では、DM 内でメンションしても app_mention は配信されず、message.im として届きます。そのため AI_CHANNEL_ID に OWNER_DM_ID と同じ値を入れない限り、本人DM での質問はすべて空リストになり、200 を返して終わります。エラーにならないため、実配送試験で「無反応」として初めて気づく種類の不具合です。あわせて、DM 内のスレッド返信（thread != ts）も対象外になります。
+
+最小修正：
+
+
+python
+    mention = event.get("type") == "app_mention"
+    owner_dm = policy.owner_only and channel == policy.owner_dm
+    if mention or owner_dm or (channel == policy.ai_channel and thread == ts):
+
+Slack アプリ側では message.im イベントの購読と im:history スコープも必要です。AI_CHANNEL_ID=OWNER_DM_ID を意図した運用であれば INFO に下げてかまいません。ただしその場合、公開時に AI_CHANNEL_ID を差し替えた時点で DM 経路が黙って止まるため、明示的な条件にしておくことを推奨します。
+
+W-1　時間予算とリースの不整合（worker.process / FirestoreStore.posting / NotebookAnswers）
+
+根拠：NotebookAnswers.call には時間上限がありません。posting はリースを延長せず、残り時間も確認しません。claim 時点のリースは 360 秒なので、回答生成に 350 秒かかると、posting 後の残りは約 10 秒です。Slack 送信の上限は 25 秒なので、その間に Cloud Tasks の再配送（dispatchDeadline 300s）が来ると、状態が uncertain に切り替わり、「送信結果不明」のアラートを出して処理が止まります。その後の送信自体は成功して done になるため二重投稿は起きませんが、誤ったアラートが出て運用ノイズになります。また worker は1スレッドなので、NotebookLM が応答しないとインスタンス全体が塞がります。
+
+最小修正：回答生成に上限（例：180秒）を設けます。posting では所有者の確認に加えて残りリースを確認し、不足していれば posting せず retry に回します。
+
+
+python
+# adapters.py
+return asyncio.run(asyncio.wait_for(ask(str(path)), 180))
+
+# cloud.py
+def posting(self, key, owner, now, **metadata):
+    def update(old):
+        if old.get("owner") != owner or old.get("lease_until", 0) < now + 60:
+            raise RuntimeError("LEASE_LOST")
+        return "posting", {"state": "posting", "lease_until": now + 60,
+                           "updated_at": datetime.now(timezone.utc), **metadata}
+    return self._change(key, update)
+
+呼び出し側は self.store.posting(work.key, owner, time.time(), ...) に変更します。例外は既存の except で fail に入り、状態が running なので retry になります。
+
+W-2　再試行の上限と最終失敗の通知（Cloud Tasks キュー設定 / worker）
+
+根拠：キューの再試行設定がコードにも手順にも含まれていません。既定値のままだと試行回数と間隔が大きく、失敗した質問が数時間から数日後にスレッドへ投稿されたり、そのたびに NotebookLM を呼び直したりするおそれがあります。長すぎる回答（INVALID_ANSWER）のような決定的な失敗も同じように再試行されます。最後の試行で諦めたときは Cloud Tasks がタスクを破棄するだけなので、本人アラートは初回の「再試行します」だけで終わります。公開前に予定している質問者への失敗案内も、この「最終失敗」を検知できる仕組みが前提になります。
+
+最小修正：キューを max_attempts 5、max_retry_duration 1800s 程度にしてコード（gcloud コマンドや IaC）に残します。worker では X-CloudTasks-TaskRetryCount ヘッダーを読み、最終試行で失敗した場合は状態を failed にしてアラートを出し、200 を返します。claim では failed を done と同様の終端状態として扱います（if state in {"done", "failed"}）。
+
+W-3　認証更新タスクの再試行の積み重なりと資源の占有（server.refresh / HttpClock.js）
+
+根拠：refresh-auth は busy や失敗のときに 503 を返します。Cloud Tasks はこれを再試行しますが、その間も GAS が5分ごとに新しいタスクを投入するため、再試行分と定期分が重なります。GAS 側はキュー名を 'sales-qa' と固定しているため、回答タスクと同じキューを共有し、再試行設定や同時実行枠も共有することになります。1回の更新は最大で約240秒（150秒+90秒）かかり、その間 worker の1スレッドを占有します。さらに5分周期だと Secret の version が1日288回追加・破棄されます。
+
+最小修正：refresh では busy と失敗のどちらの場合も 200 を返します。次の定期実行が実質的な再試行になり、失敗は既存のアラートと GAS のヘルスチェック（last_success の鮮度）で検知できます。GAS のキュー名はスクリプトプロパティ（HTTP_TASKS_QUEUE）に移し、可能なら認証更新専用のキュー（max_attempts 1）に分けます。更新間隔は、失効までの実測時間を確認したうえで延ばす余地があります。延ばす場合は、ヘルス判定の閾値 1200 秒も合わせて変更してください。
+
+W-4　gunicorn のスレッド数と Cloud Run の同時実行数（Dockerfile.http / デプロイ設定）
+
+根拠：HTTP_THREADS の既定値は 1 ですが、Cloud Run の同時実行数の既定値は 80 です。worker の場合、認証更新や回答生成を処理中のインスタンスにも次のリクエストが振り分けられ、gunicorn の待ち行列で待たされます。オートスケーラーから見るとインスタンスに余力がある状態なので、新しいインスタンスも増えません。receiver の場合も、同時に届いたイベントが直列に処理され、Slack の3秒応答の制約に近づきます。
+
+最小修正：worker は --concurrency=1 でデプロイします。receiver は HTTP_THREADS と --concurrency を同じ値（例：8）にそろえます。コールドスタートで3秒を超える場合も、Slack の再送とキーによる重複排除で吸収できますが、気になるようであれば min-instances=1 にします。
+
+INFO
+
+I-1　排他の評価（問題なし）。キーは team:channel:ts:kind から作っているため、message と app_mention で event_id が異なっても1件にまとまります。posting 後は claim が所有者を変えないので、所有者でない側の posting や finish は LEASE_LOST になります。この経路で二重投稿は見つかりませんでした。送信には成功したものの finish で Firestore への書き込みが失敗した場合は、「送信結果不明」の誤アラートになります。これは方針（不明なら再送しない）どおりの挙動として許容範囲です。
+
+I-2　HTTP応答コード。署名は正しいものの解析で例外になったイベントに 400 を返すと、Slack は再送し、失敗としても数えます（失敗率が高いとイベント配信が止められる可能性があります）。署名済みで処理対象外のものは 200 で握りつぶすほうが安全です。また、ヘッダーに非ASCII文字が含まれると hmac.compare_digest(str, str) が TypeError を投げて 500 になります。比較は expected.encode() と signature.encode("utf-8", "replace") のように bytes 同士で行ってください。
+
+I-3　ID token の再検証。Cloud Run の公式ドキュメントでは、X-Serverless-Authorization ヘッダーを使った場合は署名を除去してからコンテナに渡すとされています。一方、Authorization ヘッダーを使う場合については、受け側サービスでヘッダーを解析してトークンを検証するサンプルが示されています。Cloud Tasks の OIDC は Authorization ヘッダーを使うので、現在の実装方針と矛盾しません。ただしトラブルシューティングのページには、特定の条件でトークンの署名が除去されるケースも記載されています。実配送ゲートとして検証を残す判断は妥当です。そのほか、次の3点に注意してください。worker 側にも WORKER_URL と TASKS_SERVICE_ACCOUNT の環境変数が必要です（未設定だと、起動は成功したうえで全リクエストが 401 になるため、起動時に存在を確認する処理を入れてください）。audience は末尾スラッシュの有無まで完全に一致している必要があります。verify_oauth2_token は呼び出しのたびに公開鍵を取得するので、キャッシュ付きのセッションを使ってください。 
+Google
+Google
+
+I-4　監視。alert は予約を先に記録してから送信するため、送信に失敗するとそのアラートは二度と出ません（at-most-once）。それ自体は許容できますが、現状はログ出力が一切ないため、失敗しても痕跡が残りません。キー、状態、例外クラス名だけを構造化ログに出すことを推奨します。秘密値や本文は出力しないでください。
+
+I-5　GAS。認証更新のタスク名が auth-<連番> になっています。Cloud Tasks は連番のタスク名をホットスポットの原因として避けるよう推奨していますが、この頻度であれば実害はほぼありません。appsscript.json に cloud-platform（または cloud-tasks と datastore）スコープを明記すること、実行ユーザーに Cloud Tasks 用サービスアカウントへの actAs 権限を付与することを、手順に残しておいてください。
+
+I-6　基盤。Firestore の TTL ポリシー（expire_at）は別途有効化が必要です。Dockerfile は root ユーザーで実行されており、requirements.txt はコピーしているだけで使われていません。notebooklm CLI の --storage や auth check --test --json は非公式ライブラリの仕様に依存しているため、バージョンを固定してください。
+
+I-7　公開前に対応する項目。subtype の除外リスト方式を許可リスト方式に変え、bot_id のある投稿も除外してください。Enterprise Grid や Slack Connect では team_id の判定が変わるので、確認が必要です。受信側の /healthz は公開エンドポイントとして owner_only の値を返しているため、削除するか固定の応答にしてください。質問者への受付・失敗案内は、W-2 の最終失敗検知とセットで設計すると、実装が一箇所にまとまります。

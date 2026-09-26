@@ -84,10 +84,10 @@ def create_app():
         key, owner = "notebooklm-auth-refresh", str(uuid.uuid4())
         state = store.claim(key, owner, time.time())
         if state == "busy":
-            return "busy", 503
+            return "", 200
         try:
             notebook.refresh()
-            store.finish(key, owner, "retry", last_success=time.time(), alert_states=[])
+            store.finish(key, owner, "idle", last_success=time.time(), alert_states=[])
             return "", 200
         except Exception:
             store.fail(key, owner)
@@ -95,6 +95,7 @@ def create_app():
                 alert("NotebookLMの認証更新に失敗しました。再ログインが必要になる場合があります。", key)
             except Exception:
                 pass
-            return "temporarily unavailable", 503
+            # 失敗通知とGAS監視に残す。次の5分周期で再試行し、古い更新を積み上げない。
+            return "", 200
 
     return app
