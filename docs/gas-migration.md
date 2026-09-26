@@ -1,8 +1,8 @@
 # GAS版の導入と切替
 
-GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)へコード・マニフェストを保存済み（2026-09-26）。`ENABLED=false`、認証値未設定、トリガー登録・関数実行・本番切替は未実施。ローカル検証は `node --test tests/gas.test.cjs`（33件、外部APIはスタブ）で、実サービスの接続・権限・回答品質は未検証。
+GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)へコード・マニフェストを保存済み（2026-09-26）。`ENABLED=false`、Slack投稿・読取/Notionの認証値は設定済み。トリガー登録・本番切替は未実施。初回dry-runはGoogle承認待ちで関数本体未実行。ローカル検証は `node --test tests/gas.test.cjs`（36件、外部APIはスタブ）。MacからSlack読取認証・本人とbotのDM履歴・Notion認証/元DBの列定義を実APIで確認。GASからの接続・実書込・回答品質は未検証。
 
-作成済みプロジェクトの `コード.gs` は `gas/Core.js` + 改行 + `gas/Main.js` を連結したもの。再読込後にエディタから全コピーし、ローカルと完全一致を確認済み。更新時も同じ連結で置き換えるか、既存の結合ファイルを消してから2ファイルへ分ける（二重定義しない）。コードのSHA256は `13b8901d9f12131eae741ba37a3d5ece1873873fca558510c35241dcdbaff0ba`。
+作成済みプロジェクトの `コード.gs` は `gas/Core.js` + 改行 + `gas/Main.js` を連結したもの。再読込後にエディタから全コピーし、ローカルと完全一致を確認済み。更新時も同じ連結で置き換えるか、既存の結合ファイルを消してから2ファイルへ分ける（二重定義しない）。2026-09-27の日時型修正後も再読込・全コピーで完全一致を確認。コードのSHA256は `1cd9c120af254ca15f2a1fb3f0e3752f4ddcd613d18666d613f7fde4fb6525fb`。
 
 ```
 5分トリガー → 新着巡回（先に15秒） → 過去の親も再巡回
@@ -28,6 +28,8 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 次に必要なのは既存キーの保存場所の確認と、資料本文の移行。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
 
 2026-09-27追加：20資料の[検証用ファイル](https://drive.google.com/file/d/1bEd-_B9Y2LmbIKCVggApgjQlVeYSpd0J/view?usp=drivesdk)を作成し、GASのSERVICE_MATERIALS_FILE_IDに保存。実データとの文脈サイズ試算は110,813文字で上限内。停止・移行ACK=falseを維持。詳細は[資料準備記録](evidence/gas-migration-20260927/materials-preparation.md)。
+
+2026-09-27接続準備追記：Slack読取とNotionの既存キーを関連する取り込み設定から確認し、Slack管理画面のSales QA Bot投稿キーと合わせてGASに保存。本人とbotのDMをQA_CHANNEL_IDへ設定済み。AIキー、Notion検証DB、Google初回権限承認が残る。詳しくは[接続準備と実スキーマ確認](evidence/gas-migration-20260927/connection-preparation.md)。
 
 ## 移行する機能と差異
 
@@ -77,7 +79,7 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 
 Slack読取tokenには `channels:history`、必要なら `groups:history`、画像に `files:read` を付ける。読取ユーザーとbotを対象チャンネルに参加させる。botには `chat:write`。返信取得にuser tokenを使うのはこの実装の方針であり、現行Slackの全bot tokenが利用不可という意味ではない。既存Socket Mode用app tokenはGASでは不要。
 
-Notionは `2025-09-03` 固定、databaseのdata_sourcesを取得し、data_sourceに問い合わせる。既存スキーマは `質問の内容`（title）、`タイムスタンプ` / `サービス` / `質問者` / `回答者` / `回答テキスト`（rich_text）、`質問日時`（date）、`URL`（url）。旧SETUPにある英語のサンプル項目とは異なるので実DBで確認する。
+Notionは `2025-09-03` 固定、databaseのdata_sourcesを取得し、data_sourceに問い合わせる。既存スキーマは `質問の内容`（title）、`タイムスタンプ` / `サービス` / `質問者` / `回答者` / `回答テキスト`（rich_text）、`質問日時`（dateまたはcreated_time）、`URL`（url）。実DBでは質問日時はcreated_timeでありNotionが自動入力するため書込対象から除外する。date型なら質問時刻を設定する。元のSlack質問時刻はタイムスタンプ列に保持し、未知/欠落型はdry-runと新規作成前に停止する。旧SETUPにある英語のサンプル項目とは異なるので実DBで確認する。
 
 ## 本番を触らない事前検証
 

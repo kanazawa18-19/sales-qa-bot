@@ -86,6 +86,15 @@ function sourceId_(c) {
 function book_(c) {
     return SpreadsheetApp.openById(c.p.GOOGLE_SPREADSHEET_ID);
 }
+function notionQuestionDateType_(c) {
+    if (c.notionQuestionDateType)
+        return c.notionQuestionDateType;
+    var schema = notion_(c, 'data_sources/' + sourceId_(c), undefined, 'get');
+    var type = ((schema.properties || {})['質問日時'] || {}).type;
+    if (type !== 'date' && type !== 'created_time')
+        throw new Error('NOTION_QUESTION_DATE_SCHEMA');
+    return c.notionQuestionDateType = type;
+}
 function sheet_(book, name) {
     var s = book.getSheetByName(name);
     if (!s)
@@ -206,11 +215,14 @@ function sync_(c, book, channel, messages, snapshot) {
         properties['質問者'] = {
             rich_text: rich_(data[4])
         };
-        properties['質問日時'] = {
-            date: {
-                start: new Date(Number(data[8]) * 1000).toISOString()
-            }
-        };
+        // 作成日時型はNotionが自動入力する。元の質問時刻はタイムスタンプ列に保持する。
+        if (notionQuestionDateType_(c) === 'date') {
+            properties['質問日時'] = {
+                date: {
+                    start: new Date(Number(data[8]) * 1000).toISOString()
+                }
+            };
+        }
         // 作成結果不明時は自動再作成しない。担当者がNotionで有無を確認する。
         var props = PropertiesService.getScriptProperties(), key = 'NOTION_CREATE_PENDING';
         if (props.getProperty(key))
@@ -600,7 +612,7 @@ function dryRunSalesQa() {
     });
     sheet_(book_(c), c.p.GOOGLE_SHEET_NAME || 'QA');
     sheet_(book_(c), 'CORRECTIONS');
-    sourceId_(c);
+    notionQuestionDateType_(c);
     console.log(JSON.stringify({
         sampleOnly: true, channels: out
     }));

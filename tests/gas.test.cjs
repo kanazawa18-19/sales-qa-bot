@@ -199,6 +199,8 @@ test('dryRunはGET読み取りだけでAI・書込・進捗保存を呼ばない
                         ok: true, messages: [{
                                 ts: '101'
                             }]
+                    } : url.includes('/data_sources/') ? {
+                        properties: { '質問日時': { type: 'created_time' } }
                     } : {
                         data_sources: [{
                                 id: 'ds'
@@ -210,7 +212,7 @@ test('dryRunはGET読み取りだけでAI・書込・進捗保存を呼ばない
     });
     const result = ctx.dryRunSalesQa();
     assert.equal(result[0].ids[0], '101');
-    assert.equal(calls.length, 4);
+    assert.equal(calls.length, 5);
 });
 test('信頼するWorkflowだけAI回答対象にする', () => {
     const m = {
@@ -316,13 +318,48 @@ function adapterFixture() {
     ctx.aiText_ = () => '回答';
     return {
         ctx, book, sheets, props, store, c: {
-            ...c, p: {}
+            ...c, p: {}, notionQuestionDateType: 'date'
         }, messages: [{
                 ts: '101', text: '質問', user: 'U1'
             }, {
                 ts: '102', text: '新回答', user: 'U2'
             }]
     };
+}
+for (const type of ['date', 'created_time', 'rich_text']) {
+    test('Notion新規作成で実際の質問日時型を扱う: ' + type, () => {
+        const f = adapterFixture();
+        delete f.c.notionQuestionDateType;
+        let saved, schemaReads = 0, creates = 0;
+        f.ctx.notion_ = (c, path, body, method) => {
+            if (path === 'data_sources/source') {
+                assert.equal(method, 'get');
+                schemaReads++;
+                return { properties: { '質問日時': { type } } };
+            }
+            if (path.endsWith('/query')) return { results: [] };
+            if (path === 'pages') {
+                creates++;
+                saved = body.properties;
+                return { id: 'created' };
+            }
+            return { properties: saved };
+        };
+        if (type === 'rich_text') {
+            assert.throws(() => f.ctx.sync_(f.c, f.book, 'CQ', f.messages, '300'), /NOTION_QUESTION_DATE_SCHEMA/);
+            assert.equal(creates, 0);
+            assert.equal(f.props.NOTION_CREATE_PENDING, undefined);
+        } else {
+            f.ctx.sync_(f.c, f.book, 'CQ', f.messages, '300');
+            assert.equal(creates, 1);
+            assert.equal(saved['タイムスタンプ'].rich_text[0].text.content, '101');
+            if (type === 'date') assert.equal(saved['質問日時'].date.start, '1970-01-01T00:01:41.000Z');
+            else assert.equal(Object.hasOwn(saved, '質問日時'), false);
+            assert.equal(f.sheets.GAS_SYNC_STATE.data[0][2], 'COMPLETE');
+            f.ctx.notionQuestionDateType_(f.c);
+        }
+        assert.equal(schemaReads, 1);
+    });
 }
 test('Sheetsの手編集列保持、日本時間H列、新世代sync後の古いsnapshotを抑止', () => {
     const f = adapterFixture();
