@@ -1,0 +1,7 @@
+*
+!requirements.txt
+!requirements-http.txt
+!src/
+!src/**
+src/**/__pycache__/
+src/**/*.pyc

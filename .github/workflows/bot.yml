@@ -5,6 +5,10 @@ on:
     - cron: '*/35 * * * *'  # 自己再起動が途切れた場合のフォールバック
   workflow_dispatch:
     inputs:
+      owner_http_smoke:
+        description: 本人DMでHTTP受信とNotebookLMの通し検証
+        type: boolean
+        default: false
       owner_dm_smoke:
         description: 本人DMでNotebookLMの実回答を1回だけ確認
         type: boolean
@@ -21,12 +25,12 @@ permissions:
   actions: write  # 自己再起動のために必要
 
 concurrency:
-  group: ${{ inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || 'sales-qa-bot' }}
+  group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || 'sales-qa-bot' }}
   cancel-in-progress: true
 
 jobs:
   run-bot:
-    if: ${{ !inputs.owner_dm_smoke }}
+    if: ${{ !inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -78,7 +82,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   owner-dm-smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_dm_smoke }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -91,6 +95,25 @@ jobs:
       - run: pip install -r requirements.txt
       - name: NotebookLM実回答を本人DMへ送信
         run: python scripts/owner_dm_smoke.py
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+          NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+
+  owner-http-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_http_smoke }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-http.txt
+      - name: 署名付きHTTP受信から本人DMへの返信を確認
+        run: python scripts/owner_http_smoke.py
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}

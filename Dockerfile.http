@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 TZ=Asia/Tokyo
+COPY requirements.txt requirements-http.txt ./
+RUN pip install --no-cache-dir -r requirements-http.txt
+COPY src ./src
+ENV PYTHONPATH=/app/src
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads ${HTTP_THREADS:-1} --timeout 300 'http_app.server:create_app()'"]
