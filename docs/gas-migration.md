@@ -1,6 +1,6 @@
 # GAS版の導入と切替
 
-GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)へコード・マニフェストを保存済み（2026-09-26）。`ENABLED=false`、Slack投稿・読取/Notionの認証値は設定済み。トリガー登録・本番切替は未実施。初回dry-runはGoogle承認待ちで関数本体未実行。ローカル検証は `node --test tests/gas.test.cjs`（36件、外部APIはスタブ）。MacからSlack読取認証・本人とbotのDM履歴・Notion認証/元DBの列定義を実APIで確認。GASからの接続・実書込・回答品質は未検証。
+GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)は停止中（ENABLED=false、移行ACK=false、トリガーなし）。本人承認後にAnthropicキー設定・Google初回承認を完了。GASのdry-runと、架空データによる実AI生成・Sheets/Notion保存・再同期・本人宛メール到達まで成功した。Slackのテスト質問送信は読み取り専用エラーで拒否され、自動返信と巡回全体は未検証。本番切替は未実施。詳細は[実接続試験](evidence/gas-migration-20260927/live-smoke.md)。ローカル36テストも成功（外部APIはスタブ）。
 
 作成済みプロジェクトの `コード.gs` は `gas/Core.js` + 改行 + `gas/Main.js` を連結したもの。再読込後にエディタから全コピーし、ローカルと完全一致を確認済み。更新時も同じ連結で置き換えるか、既存の結合ファイルを消してから2ファイルへ分ける（二重定義しない）。2026-09-27の日時型修正後も再読込・全コピーで完全一致を確認。コードのSHA256は `1cd9c120af254ca15f2a1fb3f0e3752f4ddcd613d18666d613f7fde4fb6525fb`。
 
@@ -16,20 +16,15 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 
 ## 2026-09-27 の準備状況
 
-- [検証用Sheets](https://docs.google.com/spreadsheets/d/1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ/edit?usp=drivesdk)を既存の「セールスQA」からブック単位でコピー。My Driveの `ChatGPT` フォルダに配置し、権限一覧は本人ownerのみ。元表は変更していない。
-- 元表・コピーともタブは `シート1` / `CORRECTIONS` / `STATE`。QAは既定の `QA` ではない。A:JとCORRECTIONSの見出しを読戻し確認し、コピーの3タブを画面確認。全セルの一致検査は未実施。旧版の `STATE` はコピーに残るが、GASの巡回状態とは別物。
-- GASに `GOOGLE_SPREADSHEET_ID=1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ`、`GOOGLE_SHEET_NAME=シート1`、`NOTEBOOKLM_MIGRATION_ACK=false` を保存。`ENABLED=false`を維持し、トリガー0件を画面確認。
-- リポジトリに `.env` は存在しない。キーチェーンの対象サービス登録名にもAPI用の認証情報は見つからなかった。GitHub Secretsには既存botの設定名があるが、値の読み戻しはできない。`SLACK_READ_TOKEN` は登録名一覧にもない。
-- 実GAS関数、外部API接続、AI返信、通知到達は未検証。Slack本人用テスト先とNotionテストDBも未準備。旧botはGitHub Actionsで実行中、4 workflowはactiveのまま。
-- NotebookLMの移行元IDはGitHub Secretのため未特定。ホームに「ホテルサービスマスター」（64ソース表示）はあるが、旧botの参照先である根拠はない。閲覧は自動承認審査で拒否され、資料本文は取得していない。対象URLの指定・閲覧承認が必要。
+- [検証用Sheets](https://docs.google.com/spreadsheets/d/1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ/edit#gid=9272601)は本人ownerのみ。本番コピーの3タブにGAS補助5タブと架空データ専用 `GAS_TEST_QA` を追加し、接続先はこの架空データタブに固定。元表は変更なし。
+- [Notion検証DB](https://app.notion.com/p/e2889f1333c240b18a178cad8cf25cb6)はKanazawaページ配下の別DB。本番QAは変更なし。親から54名の共有を継承するため本人専用ではない。公開リンクなし、架空データ1件だけを保存。顧客データを入れない。
+- Slack・Notion・Anthropicの認証情報をGASに設定済み。本人が承認したdirector-to-HLSのAnthropicキーを使用。Google初回権限承認も完了。
+- QA/AIのチャンネルIDは本人とbotのDM。読み取りは成功するが、テスト質問送信は `restricted_action_read_only_channel` で拒否。非公開チャンネル作成も前回拒否されている。既存Slackアプリ設定の変更や本番チャンネルへの試験は行っていない。
+- 本人提示の[ホテルサービスマスター](https://notebook.google.com/notebook/ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0)を移行対象とする。[一覧](evidence/gas-migration-20260927/notebook-sources.md)65資料中、主要20資料を[検証用ファイル](https://drive.google.com/file/d/1bEd-_B9Y2LmbIKCVggApgjQlVeYSpd0J/view?usp=drivesdk)へ整理。全文移行ではない。実資料の回答品質は未検証のためACK=false。
+- 架空試験中だけ資料を架空テキストへ差し替え、終了後は資料ファイル参照を復元。試験関数もGASから除去し、通常コードと一致を確認した。
+- 確認操作で出力へ露出したSlack2キー・Notion1キー・旧式Slack Verification Tokenの交換と既存利用先への反映は未対応。秘密値はこの文書・Gitに保存していない。
 
-2026-09-27追記：本人から[ホテルサービスマスター](https://notebook.google.com/notebook/ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0)のURL提示があり、閲覧を再開。セールスQAと提案資料の存在を確認。資料一覧は [移行対象一覧](evidence/gas-migration-20260927/notebook-sources.md) に保存。旧GitHub Secretとの同一性は未照合だが、今後の移行対象は本人提示URLを使う。
-
-次に必要なのは既存キーの保存場所の確認と、資料本文の移行。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
-
-2026-09-27追加：20資料の[検証用ファイル](https://drive.google.com/file/d/1bEd-_B9Y2LmbIKCVggApgjQlVeYSpd0J/view?usp=drivesdk)を作成し、GASのSERVICE_MATERIALS_FILE_IDに保存。実データとの文脈サイズ試算は110,813文字で上限内。停止・移行ACK=falseを維持。詳細は[資料準備記録](evidence/gas-migration-20260927/materials-preparation.md)。
-
-2026-09-27接続準備追記：Slack読取とNotionの既存キーを関連する取り込み設定から確認し、Slack管理画面のSales QA Bot投稿キーと合わせてGASに保存。本人とbotのDMをQA_CHANNEL_IDへ設定済み。AIキー、Notion検証DB、Google初回権限承認が残る。詳しくは[接続準備と実スキーマ確認](evidence/gas-migration-20260927/connection-preparation.md)。
+次は書き込み可能な専用Slack検証先で質問→巡回→返信を確認し、実資料の回答品質・過去スレッド全周の遅延を検証する。既存Slackアプリの全利用者に影響する設定変更と本番切替は、具体的な変更内容を提示してから実施する。
 
 ## 移行する機能と差異
 
