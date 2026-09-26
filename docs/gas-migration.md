@@ -27,6 +27,8 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 
 次に必要なのは既存キーの保存場所の確認と、資料本文の移行。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
 
+2026-09-27追加：20資料の[検証用ファイル](https://drive.google.com/file/d/1bEd-_B9Y2LmbIKCVggApgjQlVeYSpd0J/view?usp=drivesdk)を作成し、GASのSERVICE_MATERIALS_FILE_IDに保存。実データとの文脈サイズ試算は110,813文字で上限内。停止・移行ACK=falseを維持。詳細は[資料準備記録](evidence/gas-migration-20260927/materials-preparation.md)。
+
 ## 移行する機能と差異
 
 |機能|GAS版|
