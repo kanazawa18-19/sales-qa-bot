@@ -3,7 +3,7 @@
 ## 実施したこと
 
 - Slack管理画面でSales QA Bot（app ID `A0B7DFD7EKC`）を確認。既存投稿キーを秘密値非表示でGASへ保存。Slackユーザー一覧からbot ID `U0B87Q9P99N`を照合。
-- 既存の取り込み設定にあるSlack読取キーとNotionキーの認証APIが成功。Slackは本人 `U03JFKXG6C8` / `T1CSJ782K`、history/groups/filesの必要権限あり。Notionはkanazawa-obsidian integration。GASへ保存後に値の一致だけを確認し、秘密値をログ・Git・Vaultへ出していない。
+- 既存の取り込み設定にあるSlack読取キーとNotionキーの認証APIが成功。Slackは本人 `U03JFKXG6C8` / `T1CSJ782K`、history/groups/filesの必要権限あり。Notionはkanazawa-obsidian integration。GASへ保存後に値の一致だけを確認し、Git・Vaultには秘密値を保存していない。ただし後述の確認ミスでツール出力への露出が発生。
 - Slackで本人とbotのDM `D0B87Q9U54G` を開き、conversations.info/historyが成功。履歴0件。QA_CHANNEL_IDへ設定。AI_CHANNEL_IDとメンション許可は未設定で、AIを呼ぶテスト前に設定する。
 - BOT_USER_ID / QA_CHANNEL_ID / AI_START_TS / AI_BACKEND=claude / HEALTH_EMAILを保存。ENABLED=false、NOTEBOOKLM_MIGRATION_ACK=falseを維持。AI_START_TSは実テスト直前に更新する。
 - Notion元DBのメタデータと8列の型をGETで確認。7列は想定一致、質問日時だけdateではなくcreated_time。
@@ -28,3 +28,8 @@
 - GAS無効・資料ACK=false。NOTION_DATABASE_IDとANTHROPIC_API_KEYは未設定。トリガーを追加せず、本番IDをGASへ保存していない。
 - 旧Python/Actionsや本番DBは変更していない。DMには投稿していない。
 - 見送った案：GitHub Secrets持ち出しのため本番workflowを変更、別用途AIキーの無承認転用、Google権限の無承認付与、テスト先の代わりに共有本番DBへ書くこと。
+
+## 確認操作の事故
+
+- GAS設定からトリガーへ移動した直後の確認で、画面がまだ設定ページだったため、未伏せ字の画面スナップショットをツール出力へ出してしまった。Slack投稿/読取とNotionの3キーが対象。値を文書へ転載していない。本人へ作業中に報告した。
+- 既存bot/取り込みにも影響するため、無断で失効・再発行していない。該当キー交換と既存利用先への反映が必要。以降の設定確認は秘密値そのものを出さず一致判定だけにする。
