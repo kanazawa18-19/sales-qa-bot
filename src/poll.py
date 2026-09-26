@@ -83,6 +83,9 @@ def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
 
 
 def capture_qa_threads(slack, sheets, notion, channel, oldest):
+    # GASへ記録を移した後は、Pythonから同じ表へ書き込まない。
+    if os.environ.get("QA_CAPTURE_ENABLED", "true").lower() == "false":
+        return
     messages = get_history(slack, channel, oldest)
     logger.info(f"QA catch-up: {len(messages)} messages found (oldest={oldest})")
     seen = set()

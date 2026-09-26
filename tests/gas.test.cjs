@@ -4,6 +4,31 @@ const qa = require('../gas/Core.js');
 const c = {
     channels: ['CQ'], qa: 'CQ', ai: 'CA', mentions: ['CQ'], cutoff: '100', botUser: 'UB'
 };
+test('NotebookLM構成ではGASはQAだけを巡回しAI候補を作らない', () => {
+    const p = { AI_BACKEND: 'notebooklm_external', SLACK_BOT_TOKEN: 'bot',
+        SLACK_READ_TOKEN: 'reader', BOT_USER_ID: 'UB', QA_CHANNEL_ID: 'CQ',
+        GOOGLE_SPREADSHEET_ID: 'sheet', NOTION_TOKEN: 'notion',
+        NOTION_DATABASE_ID: 'db', AI_START_TS: '100', AI_CHANNEL_ID: 'CA',
+        MENTION_CHANNEL_IDS: 'CQ,CA' };
+    const ctx = runtime({ PropertiesService: { getScriptProperties: () => ({getProperties: () => p}) }});
+    const configured = ctx.config_();
+    assert.deepEqual(Array.from(configured.channels), ['CQ']);
+    assert.equal(qa.candidate({ts: '101', text: '<@UB> 質問'}, 'CQ', configured), false);
+    assert.equal(qa.candidate({ts: '101', text: '質問'}, 'CA', configured), false);
+    const f = fixture();
+    let state = {};
+    for (let i = 0; i < 100 && !f.cycles; i++) state = qa.step(state, f.io, configured);
+    assert.ok(f.synced.length > 0);
+    assert.equal(f.answers.length, 0);
+    p.AI_BACKEND = 'claude';
+    assert.throws(() => ctx.config_(), /CONFIG_NOTEBOOKLM_EXTERNAL_REQUIRED/);
+});
+test('NotebookLM構成で過去のClaude送信台帳を再送しない', () => {
+    const ctx = runtime();
+    ctx.slack_ = () => { throw Error('外部投稿禁止'); };
+    assert.throws(() => ctx.answer_({p: {AI_BACKEND: 'notebooklm_external'}}, null,
+        'CQ', {ts: '101'}, []), /NOTEBOOKLM_ANSWER_OWNED_BY_PYTHON/);
+});
 test('Workflow本文、ブロックと人間の回答・画像を取り出す', () => {
     const r = qa.row('CQ', [{
             ts: '101.000001', user: 'U1', blocks: [{
@@ -174,7 +199,7 @@ test('ネットワーク例外の認証情報や本文を出さない', () => {
 });
 test('dryRunはGET読み取りだけでAI・書込・進捗保存を呼ばない', () => {
     let calls = [];
-    const p = {
+    const p = { AI_BACKEND: 'notebooklm_external',
         SLACK_BOT_TOKEN: 'bot', SLACK_READ_TOKEN: 'read', BOT_USER_ID: 'UB', QA_CHANNEL_ID: 'CQ', GOOGLE_SPREADSHEET_ID: 'sheet', NOTION_TOKEN: 'notion', NOTION_DATABASE_ID: 'db', AI_START_TS: '100'
     };
     const ctx = runtime({

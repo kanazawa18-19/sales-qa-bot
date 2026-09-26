@@ -1,0 +1,12 @@
+ [level=6]
+  - paragraph: 私は大規模言語モデルとしてまだ学習中です。そちらについては、理解して対応できる機能がないため、すみませんがお手伝いできません。
+  - button "良い回答":
+    - img: thumb_up
+  - button "悪い回答":
+    - img: thumb_down
+  - button "やり直す":
+    - img: refresh
+  - button "コピー":
+    - img: copy
+  - button "他のオプションを表示":
+    - img: more_horiz

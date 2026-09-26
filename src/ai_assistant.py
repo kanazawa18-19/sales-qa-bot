@@ -31,8 +31,8 @@ class AIAssistant:
         self._storage_path = self._prepare_storage()
         self._use_notebooklm = bool(self.notebook_id and self._storage_path)
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        self._claude = anthropic.Anthropic(api_key=api_key) if api_key else None
+        # NotebookLM指定では、キーが残っていても別AIを初期化しない。
+        self._claude = None
 
     def _prepare_storage(self) -> str | None:
         storage_json = os.environ.get("NOTEBOOKLM_STORAGE_JSON")
@@ -53,19 +53,16 @@ class AIAssistant:
         image_data: list[tuple[str, str]] | None = None,
     ) -> tuple[str, list[str]]:
         """回答テキストと、参照Q&Aに紐づく画像URLリストのタプルを返す"""
-        if self._use_notebooklm:
-            try:
-                return asyncio.run(self._ask_notebooklm(user_question)), []
-            except Exception as e:
-                logger.error(f"NotebookLM failed, falling back to Claude: {e}")
-
-        if self._claude:
-            return self._ask_claude(
-                user_question, qa_data, corrections or [], service_materials,
-                image_urls=image_urls, image_data=image_data,
-            )
-
-        raise RuntimeError("AI backend not configured. Set NOTEBOOKLM_* or ANTHROPIC_API_KEY.")
+        if not self._use_notebooklm:
+            raise RuntimeError("NOTEBOOKLM_NOT_CONFIGURED")
+        try:
+            answer = asyncio.run(self._ask_notebooklm(user_question))
+        except Exception:
+            # 認証情報を含み得る例外本文を出さず、別AIへの代替もしない。
+            raise RuntimeError("NOTEBOOKLM_UNAVAILABLE") from None
+        if not isinstance(answer, str) or not answer.strip():
+            raise RuntimeError("NOTEBOOKLM_EMPTY_ANSWER")
+        return answer, []
 
     async def _ask_notebooklm(self, question: str) -> str:
         from notebooklm import NotebookLMClient

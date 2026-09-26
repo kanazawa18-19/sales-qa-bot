@@ -1,5 +1,7 @@
 # GAS版の導入と切替
 
+> 2026-09-27仕様変更：回答はNotebookLMへ戻す。現行の導入・切替手順は [NotebookLM構成](notebooklm-restoration.md) を正本とする。以下のClaude回答・資料移行・AI試験の説明は旧試験の記録であり、現行手順として実行しない。GASは記録のみ、Pythonの回答・NotebookLM同期・認証更新は継続する。
+
 GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)は停止中（ENABLED=false、移行ACK=false、トリガーなし）。本人承認後にAnthropicキー設定・Google初回承認を完了。GASのdry-runと、架空データによる実AI生成・Sheets/Notion保存・再同期・本人宛メール到達まで成功した。本人DMでGASからの架空質問投稿・AIスレッド返信・重複防止も確認した。ユーザーからbotへの質問入力は無効のままで、自動巡回全体は未検証。本番切替は未実施。詳細は[実接続試験](evidence/gas-migration-20260927/live-smoke.md)。ローカル36テストも成功（外部APIはスタブ）。
 
 作成済みプロジェクトの `コード.gs` は `gas/Core.js` + 改行 + `gas/Main.js` を連結したもの。再読込後にエディタから全コピーし、ローカルと完全一致を確認済み。更新時も同じ連結で置き換えるか、既存の結合ファイルを消してから2ファイルへ分ける（二重定義しない）。2026-09-27の日時型修正後も再読込・全コピーで完全一致を確認。コードのSHA256は `1cd9c120af254ca15f2a1fb3f0e3752f4ddcd613d18666d613f7fde4fb6525fb`。
@@ -89,12 +91,8 @@ Notionは `2025-09-03` 固定、databaseのdata_sourcesを取得し、data_sourc
 
 ## 本番切替（明示指示後だけ）
 
-1. 既存Sheets、Notion、GAS設定をバックアップ。秘密値をリポジトリへ保存しない。
-2. 旧GitHub Actionsのbot定期/手動起動、自動再起動、およびNotebookLM sync・auth-refreshをすべて無効化。実行中runを停止し、再起動が残っていないことを確認。Railway等に常駐があればそれも停止。旧起動停止完了前にGASを有効化しない。
-3. 本番IDへ変更。`AI_START_TS` は旧版停止後の切替境界にする。停止前の未回答を拾う場合は、重複対象を人が照合して境界を決める。自動的に過去を回答し直さない。
-4. テスト時の `SCAN_STATE` / `RECENT_STATE` / `RECENT_THROUGH_TS` / `CYCLE_THROUGH_TS` / `NOTION_CREATE_PENDING` と健康時刻を削除。本番用一時シートは空で開始。テスト用のJOURNALを本番へ混ぜない。
-5. ENABLED=falseでdry-runとprepare。本番QA/CORRECTIONS、Notionスキーマ、資料移行ACKを確認。
-6. ENABLED=true、トリガーを1つ登録。実投稿は合意済みの対象でのみ実施し、到達を確認する。旧NotebookLM資料更新が停止している旨を利用者へ案内。
+現行手順は [NotebookLM構成の本番反映](notebooklm-restoration.md#本番へ反映する前の確認) を参照。旧bot・NotebookLM同期・認証更新の全停止手順は撤回する。
+GASを停止した状態で、旧巡回のSCAN_STATE/RECENT_STATEとstageをリセットしてからQAだけの巡回を開始する。同期先を変えない限りGAS_SYNC_STATEのNotion page IDを削除しない。
 
 ## 障害時とロールバック
 

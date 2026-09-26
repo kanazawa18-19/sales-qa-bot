@@ -1,0 +1,87 @@
+
+      - 'heading "Claudeが返答しました: 結論として、差分から確定できるBLOCKERはありません。ただし、呼び出し元を見ないと判断できない点が2つあり、mainへ反映する前に確認が必要です。" [level=2]'
+      - generic "QA未対応時のチャンネル分岐挙動を確認中。":
+        - generic: QA未対応時のチャンネル分岐挙動を確認中。
+        - button "QA未対応時のチャンネル分岐挙動を確認中。":
+          - generic: 
+      - status: QA未対応時のチャンネル分岐挙動を確認中。
+      - paragraph: 結論として、差分から確定できるBLOCKERはありません。ただし、呼び出し元を見ないと判断できない点が2つあり、mainへ反映する前に確認が必要です。
+      - paragraph: 確認必須（呼び出し元次第でBLOCKER）
+      - list:
+        - text: GAS
+        - code: answer_
+        - text: の例外送出
+        - code: answer_
+        - text: が旧送信台帳（GAS_AI_JOURNAL）の未完了行を再処理するループから呼ばれる場合、毎回
+        - code: NOTEBOOKLM_ANSWER_OWNED_BY_PYTHON
+        - text: で止まります。行単位でcatchしていなければ、同じ巡回で行うQA記録まで中断します。throwではなくスキップにするか、呼び出し側で行単位にcatchされていることを確認してください。現在のテストは「再送を拒否する」ことは確認していますが、「拒否しても記録が続く」ことは確認していません。
+        - text: bot.py
+        - code: handle_message
+        - text: の分岐
+        - text: 元の
+        - code: "if channel == QA_CHANNEL_ID:"
+        - text: ブロックが最後に
+        - code: return
+        - text: していた場合、
+        - code: QA_CAPTURE_ENABLED=false
+        - text: にするとQAチャンネルのメッセージがこのブロックを通らず、後続のAI処理やメンション処理へ流れます。その結果、QAチャンネルで新たに回答が出る可能性があります。次の形にするのが安全です。
+      - group "pythonコード":
+        - button "クリップボードにコピー":
+          - generic: 
+        - status
+        - generic: python
+        - code:
+          - generic: "if channel == QA_CHANNEL_ID:"
+          - generic: "if QA_CAPTURE_ENABLED: ..."
+          - generic: return
+      - paragraph: WARN
+      - table:
+        - rowgroup:
+          - row "箇所 内容":
+            - columnheader "箇所"
+            - columnheader "内容"
+        - rowgroup:
+          - row "ai_assistant.py 例外処理 from None でログを一切出さないため、障害時に原因を追えません。認証情報を含まない type(e).__name__ だけでもlogger.errorに残すことを推奨します。":
+            - cell "ai_assistant.py 例外処理"
+            - cell "from None でログを一切出さないため、障害時に原因を追えません。認証情報を含まない type(e).__name__ だけでもlogger.errorに残すことを推奨します。":
+              - code: from None
+              - text: でログを一切出さないため、障害時に原因を追えません。認証情報を含まない
+              - code: type(e).__name__
+              - text: だけでもlogger.errorに残すことを推奨します。
+          - row "ai_assistant.py 呼び出し側 これまでは代替回答で返っていた処理が、RuntimeErrorで上がるようになります。handle_ai_channel / handle_ai_mentions / Socket Mode側でcatchされるか、失敗時にlast_tsが進まず同じ質問を無限に再試行しないか、利用者に何も返らない無応答にならないかを確認してください。":
+            - cell "ai_assistant.py 呼び出し側"
+            - cell "これまでは代替回答で返っていた処理が、RuntimeErrorで上がるようになります。handle_ai_channel / handle_ai_mentions / Socket Mode側でcatchされるか、失敗時にlast_tsが進まず同じ質問を無限に再試行しないか、利用者に何も返らない無応答にならないかを確認してください。"
+          - row "ai_assistant.py _claude=None 回答以外（補正の要約や画像処理など）で self._claude を参照する箇所が残っていれば、そこで失敗します。grepで確認してください。":
+            - cell "ai_assistant.py _claude=None":
+              - text: ai_assistant.py
+              - code: _claude=None
+            - cell "回答以外（補正の要約や画像処理など）で self._claude を参照する箇所が残っていれば、そこで失敗します。grepで確認してください。":
+              - text: 回答以外（補正の要約や画像処理など）で
+              - code: self._claude
+              - text: を参照する箇所が残っていれば、そこで失敗します。grepで確認してください。
+          - row "GAS config_ AI_BACKEND が未設定だと、healthSalesQa も含めて全関数が例外になり、ヘルスチェックで状態を確認できません。トリガーを有効にする前にスクリプトプロパティを設定する手順が必須です。":
+            - cell "GAS config_"
+            - cell "AI_BACKEND が未設定だと、healthSalesQa も含めて全関数が例外になり、ヘルスチェックで状態を確認できません。トリガーを有効にする前にスクリプトプロパティを設定する手順が必須です。":
+              - code: AI_BACKEND
+              - text: が未設定だと、
+              - code: healthSalesQa
+              - text: も含めて全関数が例外になり、ヘルスチェックで状態を確認できません。トリガーを有効にする前にスクリプトプロパティを設定する手順が必須です。
+          - row "GAS health 旧台帳の行が failedCount に計上され続け、恒常的に失敗しているように見える可能性があります。":
+            - cell "GAS health"
+            - cell "旧台帳の行が failedCount に計上され続け、恒常的に失敗しているように見える可能性があります。":
+              - text: 旧台帳の行が
+              - code: failedCount
+              - text: に計上され続け、恒常的に失敗しているように見える可能性があります。
+          - row "workflow のID直書き ノートブックIDは認証情報ではありませんが、リポジトリが公開されている場合は露出します。また auth-refresh.yml が secrets の NOTEBOOKLM_NOTEBOOK_ID を参照していて値が異なると、参照先が不一致になります。":
+            - cell "workflow のID直書き"
+            - cell "ノートブックIDは認証情報ではありませんが、リポジトリが公開されている場合は露出します。また auth-refresh.yml が secrets の NOTEBOOKLM_NOTEBOOK_ID を参照していて値が異なると、参照先が不一致になります。"
+          - row "QA_CAPTURE_ENABLED の判定 false 以外（0 や no など）はすべて有効と扱われます。運用手順に「false と明記する」と書いておけば足ります。":
+            - cell "QA_CAPTURE_ENABLED の判定"
+            - cell "false 以外（0 や no など）はすべて有効と扱われます。運用手順に「false と明記する」と書いておけば足ります。":
+              - code: "false"
+              - text: 以外（
+              - code: "0"
+              - text: や
+              - code: "no"
+              - text: など）はすべて有効と扱われます。運用手順に「false と明記する」と書いておけば足ります。
+      - paragraph: 設計（回答はPython＋NotebookLM、記録はGAS、代替なし）と反映前の確認手順は妥当です。検証の限界に書かれているとおり、実認証での回答確認が終わるまでは本番切替を行わない前提で問題ありません。

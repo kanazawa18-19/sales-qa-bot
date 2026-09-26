@@ -60,11 +60,15 @@ def _rebuild_sheets():
     sheets = SheetsClient()
 
 QA_CHANNEL_ID = os.environ.get("QA_CHANNEL_ID")
+# 切替時だけfalseに設定する。既存運用ではPythonが記録を継続する。
+QA_CAPTURE_ENABLED = os.environ.get("QA_CAPTURE_ENABLED", "true").lower() != "false"
 AI_CHANNEL_ID = os.environ.get("AI_CHANNEL_ID")
 SERVICE_MATERIALS = os.environ.get("SERVICE_MATERIALS_TEXT", "")
 
 
 def capture_thread(client, channel: str, thread_ts: str):
+    if not QA_CAPTURE_ENABLED:
+        return
     try:
         result = client.conversations_replies(channel=channel, ts=thread_ts, limit=200)
         messages = result.get("messages", [])
@@ -101,7 +105,7 @@ def handle_message(event, client, say):
         return
 
     # Q&Aキャプチャ
-    if channel == QA_CHANNEL_ID:
+    if QA_CAPTURE_ENABLED and channel == QA_CHANNEL_ID:
         thread_ts = event.get("thread_ts")
         if thread_ts:
             capture_thread(client, channel, thread_ts)
@@ -195,7 +199,7 @@ def run_catchup():
             logger.info(f"Catching up missed messages since ts={last_ts}")
 
         # チャンネルアクセス診断
-        if QA_CHANNEL_ID:
+        if QA_CAPTURE_ENABLED and QA_CHANNEL_ID:
             try:
                 info = slack.conversations_info(channel=QA_CHANNEL_ID)
                 ch = info.get("channel", {})
@@ -209,7 +213,7 @@ def run_catchup():
             except Exception as diag_e:
                 logger.error(f"Channel diagnostic failed: {diag_e}")
 
-        if QA_CHANNEL_ID:
+        if QA_CAPTURE_ENABLED and QA_CHANNEL_ID:
             capture_qa_threads(slack, sheets, notion, QA_CHANNEL_ID, last_ts)
         handle_ai_channel(slack, sheets, ai, bot_user_id, last_ts, own_bot_id=_bot_id)
         handle_ai_mentions(slack, sheets, ai, bot_user_id, last_ts, own_bot_id=_bot_id)

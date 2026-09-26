@@ -1,6 +1,9 @@
 /* トークンはスクリプトプロパティだけに保存する。 */
 function config_() {
     var p = PropertiesService.getScriptProperties().getProperties();
+    // 回答は既存PythonのNotebookLMに委譲し、GASは記録だけを担当する。
+    if (p.AI_BACKEND !== 'notebooklm_external')
+        throw new Error('CONFIG_NOTEBOOKLM_EXTERNAL_REQUIRED');
     ['SLACK_BOT_TOKEN', 'SLACK_READ_TOKEN', 'BOT_USER_ID', 'QA_CHANNEL_ID', 'GOOGLE_SPREADSHEET_ID', 'NOTION_TOKEN', 'NOTION_DATABASE_ID', 'AI_START_TS'].forEach(function (k) {
         if (!p[k])
             throw new Error('CONFIG_' + k);
@@ -13,8 +16,8 @@ function config_() {
         return x.trim();
     }).filter(Boolean);
     return {
-        p: p, qa: p.QA_CHANNEL_ID, ai: p.AI_CHANNEL_ID || '', mentions: mentions, workflowBots: (p.TRUSTED_WORKFLOW_BOT_IDS || '').split(',').filter(Boolean), cutoff: p.AI_START_TS, botUser: p.BOT_USER_ID,
-        channels: Array.from(new Set([p.QA_CHANNEL_ID, p.AI_CHANNEL_ID].concat(mentions).filter(Boolean)))
+        p: p, qa: p.QA_CHANNEL_ID, ai: '', mentions: [], workflowBots: (p.TRUSTED_WORKFLOW_BOT_IDS || '').split(',').filter(Boolean), cutoff: p.AI_START_TS, botUser: p.BOT_USER_ID,
+        channels: [p.QA_CHANNEL_ID]
     };
 }
 function safeError_(e) {
@@ -358,6 +361,9 @@ function aiText_(c, book, m) {
     return answer + (images.length ? '\n\n参考画像:\n' + images.join('\n') : '');
 }
 function answer_(c, book, channel, m, thread) {
+    // 過去のClaude回答が送信台帳に残っていても再送しない。
+    if (c.p.AI_BACKEND === 'notebooklm_external')
+        throw new Error('NOTEBOOKLM_ANSWER_OWNED_BY_PYTHON');
     var journal = sheet_(book, 'GAS_AI_JOURNAL'), key = channel + ':' + m.ts, all = rows_(journal), i = all.findIndex(function (r) {
         return r[0] === key;
     }), row = i < 0 ? null : all[i];
@@ -642,10 +648,11 @@ function healthSalesQa() {
         enabled: p.getProperty('ENABLED') === 'true', triggerCount: ScriptApp.getProjectTriggers().filter(function (t) {
             return t.getHandlerFunction() === 'pollSalesQa';
         }).length,
-        lastRun: p.getProperty('LAST_RUN_SUCCESS'), lastRecentCycle: p.getProperty('LAST_RECENT_CYCLE_SUCCESS'), lastCycle: p.getProperty('LAST_CYCLE_SUCCESS'), through: p.getProperty('CYCLE_THROUGH_TS'), syncVerified: p.getProperty('LAST_SYNC_VERIFIED'), aiAccepted: p.getProperty('LAST_AI_ACCEPTED'), health: JSON.parse(p.getProperty('HEALTH') || '{}')
+        role: 'qa_recording_only', answerBackend: 'notebooklm_python',
+        lastRun: p.getProperty('LAST_RUN_SUCCESS'), lastRecentCycle: p.getProperty('LAST_RECENT_CYCLE_SUCCESS'), lastCycle: p.getProperty('LAST_CYCLE_SUCCESS'), through: p.getProperty('CYCLE_THROUGH_TS'), syncVerified: p.getProperty('LAST_SYNC_VERIFIED'), health: JSON.parse(p.getProperty('HEALTH') || '{}')
     };
     var healthBook = book_(config_()), journalSheet = healthBook.getSheetByName('GAS_AI_JOURNAL'), deletedSheet = healthBook.getSheetByName('GAS_DELETED');
-    out.failedCount = journalSheet ? rows_(journalSheet).filter(function (r) {
+    out.legacyAiFailedCount = journalSheet ? rows_(journalSheet).filter(function (r) {
         return r[1] === 'FAILED';
     }).length : 0;
     out.deletedCount = deletedSheet ? deletedSheet.getLastRow() : 0;
