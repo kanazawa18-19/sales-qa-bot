@@ -13,9 +13,11 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'scripts/runtime_ops.py'
       - '.github/workflows/bot.yml'
 
 permissions:
+  contents: read
   actions: write  # 自己再起動のために必要
 
 concurrency:
@@ -26,7 +28,7 @@ jobs:
   run-bot:
     if: ${{ !inputs.owner_dm_smoke }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -40,9 +42,11 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run bot
-        run: cd src && python bot.py
+        timeout-minutes: 27
+        run: python scripts/runtime_ops.py supervise
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
           QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
           QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
@@ -58,13 +62,20 @@ jobs:
           AI_CHANNEL_ID: ${{ secrets.AI_CHANNEL_ID }}
 
       - name: Restart workflow
-        if: always()
+        id: restart
+        if: ${{ !cancelled() }}
         run: |
-          curl -s -X POST \
+          curl --fail --silent --show-error --max-time 25 -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/bot.yml/dispatches" \
             -d '{"ref":"main"}'
+
+      - name: 再起動失敗を本人へ通知
+        if: ${{ failure() && steps.restart.outcome == 'failure' }}
+        run: python scripts/runtime_ops.py restart-failed
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   owner-dm-smoke:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_dm_smoke }}

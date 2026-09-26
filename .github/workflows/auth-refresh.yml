@@ -2,36 +2,31 @@ name: Refresh NotebookLM Auth
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # 5分ごと
+    - cron: '17,47 * * * *'  # Botからの5分起動が途切れた場合の保険
   workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: sales-qa-notebooklm-auth-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install notebooklm-py
-        run: pip install notebooklm-py
-
-      - name: Write storage JSON
+        run: pip install notebooklm-py==0.8.3 requests==2.32.3
+      - name: 認証更新・保存・到達確認
+        run: python scripts/runtime_ops.py refresh
         env:
-          STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
-        run: |
-          mkdir -p /home/runner/.notebooklm/profiles/default
-          echo "$STORAGE_JSON" > /home/runner/.notebooklm/profiles/default/storage_state.json
-
-      - name: Refresh auth
-        run: python -m notebooklm auth refresh
-
-      - name: Update NOTEBOOKLM_STORAGE_JSON secret
-        env:
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          gh secret set NOTEBOOKLM_STORAGE_JSON \
-            --repo "${{ github.repository }}" \
-            < /home/runner/.notebooklm/profiles/default/storage_state.json
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
