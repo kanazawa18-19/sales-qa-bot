@@ -1,5 +1,7 @@
 # セットアップ手順
 
+GAS版の導入・検証・切替は [GAS移行手順](docs/gas-migration.md) を参照してください。以下は既存Python版の手順です。
+
 ## 1. Slack App の作成
 
 1. https://api.slack.com/apps → 「Create New App」→「From scratch」

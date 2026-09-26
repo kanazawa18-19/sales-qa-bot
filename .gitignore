@@ -6,3 +6,5 @@ __pycache__/
 venv/
 *.json
 !requirements*.txt
+!gas/appsscript.json
+.clasp.json
