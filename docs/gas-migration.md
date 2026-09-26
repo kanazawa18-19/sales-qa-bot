@@ -14,6 +14,17 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 
 5分は起動間隔であり返信保証時間ではない。履歴・返信とも15件ずつ全ページを取得し、既定45秒を目安に終了して進捗を次回へ渡す。新着巡回と過去巡回は独立した保存位置・一時シートを持つ。新着は前回到達時刻から10分重ねて読む。古い親への新しい返信は過去巡回で拾うため、全体1巡の時間だけ遅れる。履歴量・Slackのレート制限で数時間以上かかる可能性もある。検証時に `lastRecentCycle` と `lastCycle` の更新間隔を実測し、業務で許容する遅延を超える場合は本番へ切り替えない。Slackに保存されなくなった履歴は取得できない。
 
+## 2026-09-27 の準備状況
+
+- [検証用Sheets](https://docs.google.com/spreadsheets/d/1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ/edit?usp=drivesdk)を既存の「セールスQA」からブック単位でコピー。My Driveの `ChatGPT` フォルダに配置し、権限一覧は本人ownerのみ。元表は変更していない。
+- 元表・コピーともタブは `シート1` / `CORRECTIONS` / `STATE`。QAは既定の `QA` ではない。A:JとCORRECTIONSの見出しを読戻し確認し、コピーの3タブを画面確認。全セルの一致検査は未実施。旧版の `STATE` はコピーに残るが、GASの巡回状態とは別物。
+- GASに `GOOGLE_SPREADSHEET_ID=1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ`、`GOOGLE_SHEET_NAME=シート1`、`NOTEBOOKLM_MIGRATION_ACK=false` を保存。`ENABLED=false`を維持し、トリガー0件を画面確認。
+- リポジトリに `.env` は存在しない。キーチェーンの対象サービス登録名にもAPI用の認証情報は見つからなかった。GitHub Secretsには既存botの設定名があるが、値の読み戻しはできない。`SLACK_READ_TOKEN` は登録名一覧にもない。
+- 実GAS関数、外部API接続、AI返信、通知到達は未検証。Slack本人用テスト先とNotionテストDBも未準備。旧botはGitHub Actionsで実行中、4 workflowはactiveのまま。
+- NotebookLMの移行元IDはGitHub Secretのため未特定。ホームに「ホテルサービスマスター」（64ソース表示）はあるが、旧botの参照先である根拠はない。閲覧は自動承認審査で拒否され、資料本文は取得していない。対象URLの指定・閲覧承認が必要。
+
+次に必要なのは既存キーの保存場所の確認と、移行対象NotebookLMの特定。秘密値をチャットへ貼らず、GASのスクリプトプロパティへ設定する。Slack bot token・読取user token・Notion token・Anthropic API keyに加え、BOT_USER_IDとテスト先IDを設定してからdry-runへ進む。資料確認前にACKをtrueにしない。
+
 ## 移行する機能と差異
 
 |機能|GAS版|
