@@ -38,3 +38,15 @@
 - App Homeで `Display Messages tab` はON、`Allow users to send Slash commands and messages from the messages tab` はOFFと画面確認。後者をONにすればDMからの質問入力を許可する設定になる。既存アプリ全利用者に適用されるため、今回は変更していない。公開チャンネルの購読設定・投稿先には触れない。
 - 02:16:55 JSTのhealthSalesQaで enabled=false / triggerCount=0 / lastRun=null / aiAccepted=null。同期時刻だけ更新済みで、自動巡回・返信を確認した状態ではない。
 - Basic Information画面の旧式Verification Tokenがツール出力へ含まれた。本人へ即報告。従来のSlack2キー・Notion1キーに加えて交換対象へ追加。キー接頭辞だけを伏せる処理ではこの旧式値を捕捉できなかった。以後この画面の全体出力をせず、非秘密の設定ラベルだけ抽出した。秘密値は文書に記載しない。
+
+## 本人DMへの送信確認（02:23 JST追記）
+
+- 本人が「dmに送っていいよ。俺のdmね」と承認。対象は本人とSales QA BotのDM `D0B87Q9U54G` に固定。App Homeの全利用者向け設定は変更していない。
+- `tests/gas-dm-smoke.js` を一時配置。読取認証のuser_idが本人 `U03JFKXG6C8`、会話がbotとの1対1 DMであること、停止状態・トリガーなし・検証用Sheetsであることを実行時に検査。
+- botが架空質問の親投稿を作り、通常の `answer_` を呼んだ。資料は呼出し内だけ架空テキストに差し替え、実資料ファイルをAIへ送っていない。保存済み移行ACKはfalseのまま。
+- 02:23:12 親投稿 `1790443392.711699`、02:23:16 AI返信 `1790443396.700699`。「テストプラン青の月額料金は1,234円です」。同じanswer_を2回呼び、実スレッドのbot返信数は1件。通常の送信台帳による重複防止を実確認。
+- Slackコネクターで別途スレッドを読み、投稿者Sales QA Bot・質問1件・回答1件・本文を確認。試験は02:23:19に完了。
+- [本人DMの試験スレッド](https://cnctor.slack.com/archives/D0B87Q9U54G/p1790443392711699)
+- **確認範囲**：GASから本人DMへの送信、AI生成、スレッド返信、返信読戻し、重複防止。質問はbotが作成したため、ユーザー投稿の検出やpollSalesQa全体の試験ではない。ユーザーからbotへのDM送信許可はOFFのまま。
+- 試験終了後、一時コードを除去してCore+Mainへ復元。定期トリガー・本番切替なし。親投稿IDだけをSMOKE_DM_PARENT_TSに保持し、不用意な再送を防ぐ。
+- 見送った案：本人DMへの送信許可を全利用者のDM設定変更許可と解釈すること。今回の対象範囲を本人だけに守った。

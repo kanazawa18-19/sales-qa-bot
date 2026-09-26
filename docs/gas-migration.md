@@ -1,6 +1,6 @@
 # GAS版の導入と切替
 
-GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)は停止中（ENABLED=false、移行ACK=false、トリガーなし）。本人承認後にAnthropicキー設定・Google初回承認を完了。GASのdry-runと、架空データによる実AI生成・Sheets/Notion保存・再同期・本人宛メール到達まで成功した。Slackのテスト質問送信は読み取り専用エラーで拒否され、自動返信と巡回全体は未検証。本番切替は未実施。詳細は[実接続試験](evidence/gas-migration-20260927/live-smoke.md)。ローカル36テストも成功（外部APIはスタブ）。
+GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)は停止中（ENABLED=false、移行ACK=false、トリガーなし）。本人承認後にAnthropicキー設定・Google初回承認を完了。GASのdry-runと、架空データによる実AI生成・Sheets/Notion保存・再同期・本人宛メール到達まで成功した。本人DMでGASからの架空質問投稿・AIスレッド返信・重複防止も確認した。ユーザーからbotへの質問入力は無効のままで、自動巡回全体は未検証。本番切替は未実施。詳細は[実接続試験](evidence/gas-migration-20260927/live-smoke.md)。ローカル36テストも成功（外部APIはスタブ）。
 
 作成済みプロジェクトの `コード.gs` は `gas/Core.js` + 改行 + `gas/Main.js` を連結したもの。再読込後にエディタから全コピーし、ローカルと完全一致を確認済み。更新時も同じ連結で置き換えるか、既存の結合ファイルを消してから2ファイルへ分ける（二重定義しない）。2026-09-27の日時型修正後も再読込・全コピーで完全一致を確認。コードのSHA256は `1cd9c120af254ca15f2a1fb3f0e3752f4ddcd613d18666d613f7fde4fb6525fb`。
 
@@ -19,7 +19,7 @@ GAS版は追加実装。既存Python・GitHub Actionsは変更していない。
 - [検証用Sheets](https://docs.google.com/spreadsheets/d/1q6MRXp8R_pYMjaZcosCVRAh6CfpuATohUXezgh-CKfQ/edit#gid=9272601)は本人ownerのみ。本番コピーの3タブにGAS補助5タブと架空データ専用 `GAS_TEST_QA` を追加し、接続先はこの架空データタブに固定。元表は変更なし。
 - [Notion検証DB](https://app.notion.com/p/e2889f1333c240b18a178cad8cf25cb6)はKanazawaページ配下の別DB。本番QAは変更なし。親から54名の共有を継承するため本人専用ではない。公開リンクなし、架空データ1件だけを保存。顧客データを入れない。
 - Slack・Notion・Anthropicの認証情報をGASに設定済み。本人が承認したdirector-to-HLSのAnthropicキーを使用。Google初回権限承認も完了。
-- QA/AIのチャンネルIDは本人とbotのDM。読み取りは成功するが、テスト質問送信は `restricted_action_read_only_channel` で拒否。非公開チャンネル作成も前回拒否されている。既存Slackアプリ設定の変更や本番チャンネルへの試験は行っていない。
+- QA/AIのチャンネルIDは本人とbotのDM。読み取りは成功するが、テスト質問送信は `restricted_action_read_only_channel` で拒否。非公開チャンネル作成も前回拒否されている。本人承認後、botから本人DMへの投稿とAI返信は成功。既存Slackアプリ設定の変更や本番チャンネルへの試験は行っていない。
 - 本人提示の[ホテルサービスマスター](https://notebook.google.com/notebook/ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0)を移行対象とする。[一覧](evidence/gas-migration-20260927/notebook-sources.md)65資料中、主要20資料を[検証用ファイル](https://drive.google.com/file/d/1bEd-_B9Y2LmbIKCVggApgjQlVeYSpd0J/view?usp=drivesdk)へ整理。全文移行ではない。実資料の回答品質は未検証のためACK=false。
 - 架空試験中だけ資料を架空テキストへ差し替え、終了後は資料ファイル参照を復元。試験関数もGASから除去し、通常コードと一致を確認した。
 - 確認操作で出力へ露出したSlack2キー・Notion1キー・旧式Slack Verification Tokenの交換と既存利用先への反映は未対応。秘密値はこの文書・Gitに保存していない。
