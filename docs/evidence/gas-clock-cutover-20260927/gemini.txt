@@ -1,0 +1,104 @@
+772 heading BLOCKER（修正必須）, Value: 3
+									773 text BLOCKER（修正必須）
+								774 heading 1. bot.yml に workflow_dispatch の inputs 定義が存在しない, Value: 4
+									775 text 1. 
+									776 text bot.yml
+									777 text  に 
+									778 text workflow_dispatch
+									779 text  の 
+									780 text inputs
+									781 text  定義が存在しない
+								782 content list
+									783 container
+										784 text 対象ファイル :  .github/workflows/bot.yml  /  gas/ActionsClock.js
+									785 container
+										786 text 問題点 :
+ runActionsClockOwnerSmoke()  で  bot.yml  に対し  { ref: 'slack-http', inputs: { owner_dm_smoke: true, clock_request_id: ... } }  を送信する実装になっていますが、 bot.yml  側に  inputs  の定義が追加されていません。
+GitHub Actions REST API ( POST /actions/workflows/bot.yml/dispatches ) は、ワークフロー YAML 上で定義されていない input パラメータを受け取ると  HTTP 422 Unprocessable Entity  エラーを返し、DM試験の起動に失敗します。
+									787 container
+										788 text 対応策 :
+ bot.yml  の  on.workflow_dispatch  に  clock_request_id  および  owner_dm_smoke  の入力定義を追加してください。
+								789 container
+									790 text YAML
+									791 container
+										792 button コードをダウンロードする
+										793 button コードをコピー
+									794 text # .github/workflows/bot.yml on: workflow_dispatch: inputs: clock_request_id: description: GAS時計の照合ID type: string default: "" owner_dm_smoke: description: 本人DM疎通テストフラグ type: boolean default: false
+								795 heading WARN（注意・確認事項）, Value: 3
+									796 text WARN（注意・確認事項）
+								797 heading 1. 切替確認後の bot-watchdog.yml 間隔緩め手順, Value: 4
+									798 text 1. 切替確認後の 
+									799 text bot-watchdog.yml
+									800 text  間隔緩め手順
+								801 content list
+									802 container
+										803 text 対象ファイル :  .github/workflows/bot-watchdog.yml
+									804 container
+										805 text 状況 : 要件通り現在は 30分間隔 ( 17,47 * * * * ) の保険が維持されています。
+									806 container
+										807 text 対応策 : GAS時計が有効化され、 tickActionsClock()  による起動照合・稼働報告が実環境で確認できた後、 bot-watchdog.yml  の cron を  17 */4 * * *  （4時間間隔）へ更新するコミット/PRを忘れずに実施してください。
+								808 heading 2. Bot再起動時における一時的な CLOCK_BOT_NOT_RUNNING 判定, Value: 4
+									809 text 2. Bot再起動時における一時的な 
+									810 text CLOCK_BOT_NOT_RUNNING
+									811 text  判定
+								812 content list
+									813 container
+										814 text 対象ファイル :  gas/ActionsClock.js  ( tickActionsClock )
+									815 container
+										816 text 状況 :
+ health.botActive  は  r.status === 'in_progress'  のみで判定されています。Botの定期再起動時やGitHub Actionsのジョブキュー待ちのタイミングで  queued  や  waiting  状態になると、一時的に  health.botActive = false  となり  CLOCK_BOT_NOT_RUNNING  の通知条件に該当します。
+									817 container
+										818 text 対応策 :
+ ACTIONS_CLOCK_NOTICE_AT  による 1時間以内の連発防止ロジックが機能しているため致命的ではありませんが、再起動タイミングと重なった場合にアラートメールが届く可能性がある点を運用上留意してください。
+								819 heading INFO（検証・設計の適正確認）, Value: 3
+									820 text INFO（検証・設計の適正確認）
+								821 heading 1. 本番無停止・GAS停止状態での安全な先行保存, Value: 4
+									822 text 1. 本番無停止・GAS停止状態での安全な先行保存
+								823 content list
+									824 container
+										825 text 確認結果 :
+ ActionsClock.js  は初期状態で  ACTIONS_CLOCK_ENABLED !== 'true'  の場合は処理を中断 ( disabled ) する設計になっており、 runActionsClockOwnerSmoke()  も  ENABLED === 'true'  の時は実行を拒否する安全制御が入っています。停止中のGASにコードを保存・デプロイしても本番Botに影響を与えません。
+								826 heading 2. AUTH_CLOCK_OWNER=gas による重複起動防止, Value: 4
+									827 text 2. 
+									828 text AUTH_CLOCK_OWNER=gas
+									829 text  による重複起動防止
+								830 content list
+									831 container
+										832 text 確認結果 :
+ scripts/runtime_ops.py  内で  AUTH_CLOCK_OWNER != 'gas'  の場合のみ  dispatch_refresh()  を呼ぶ制御が実装されており、テスト ( test_gas_clock_disables_only_dispatch ) でも検証されています。GASの実到達確認後にリポジトリ変数を  gas  に更新することで、Python側からの重畳起動を安全に停止できます。
+								833 heading 3. シークレットおよび認証情報の非保持・秘匿, Value: 4
+									834 text 3. シークレットおよび認証情報の非保持・秘匿
+								835 content list
+									836 container
+										837 text 確認結果 :
+コード・テストコード・ログ出力のいずれにも生鍵やトークンは含まれておらず、 PropertiesService  や  secrets.*  の参照名のみが使われています。通信エラー発生時もステータスコードのみが捕捉され、情報漏洩を防ぐ実装になっています。
+								838 heading 4. QA記録機能への非影響, Value: 4
+									839 text 4. QA記録機能への非影響
+								840 content list
+									841 container
+										842 text 確認結果 :
+ bot.yml  内の  QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}  等の既存ロジックに変更はなく、QA記録に影響を与えません。
+							843 checkbox Description: 良い回答, Value: 0
+							844 checkbox Description: 悪い回答, Value: 0
+							845 button やり直す
+							846 button コピー
+							847 button 他のオプションを表示
+					60 container
+						61 container
+							62 container
+								63 container
+									64 text entry area (settable) Description: Gemini へのプロンプトを入力, Value: 
+
+										848 text Gemini に相談
+										849 text encrypted
+								67 pop up button (collapsed) Description: アップロードとツール, Secondary Actions: Expand
+								73 pop up button (collapsed) Description: モード選択ツールを開く（現在のモデル: 思考モード）, Secondary Actions: Expand
+								850 container
+									851 button 音声入力 (⌘⇧D)
+						419 text CNCTOR のチャットはモデルのトレーニングには使用されません。Gemini は AI であり、不正確な情報を表示することがあります。
+						420 link Description: プライバシーと Gemini 新しいウィンドウで開く, Value: support.google.com/gemini/answer/14620100
+		852 text Refining GAS Status Verification
+
+The focused UI element is 64 text entry area (settable) Description: Gemini へのプロンプトを入力, Value: 
+
+URL: https://gemini.google.com/app/42a918a466e1b388?hl=ja

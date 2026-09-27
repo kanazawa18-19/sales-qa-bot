@@ -7,7 +7,7 @@ GAS 5分時計 → 認証更新の未完了なし → auth-refresh（既存の�
             → Botの未完了なし     → watchdog → 再確認して復旧要求
 稼働・待機Botあり                 → Botへ何もしない
 Botの24分自己再起動               → 維持
-GitHub 4時間時計                  → GAS停止時の保険
+GitHub 認証30分・復旧4時間時計    → GAS停止時の保険
 ```
 
 GASは通常Botを取り消さない。復旧直前の再確認と共通実行枠による直列化は既存watchdogが担当する。停止や待機が長い場合は本人宛メールで通知する。GitHub受付と実処理成功、Slack実回答成功はそれぞれ別に確認する。
@@ -16,9 +16,9 @@ GASは通常Botを取り消さない。復旧直前の再確認と共通実行�
 
 1. 既存準備用GASのActionsClock.jsを更新する。既存Core/Main・QA記録設定・本人DM試験の記録は保持する。既存ACTIONS_CLOCK_TOKENとHEALTH_EMAILの値を取得・表示・再入力しない。設定有無だけ確認する。停止状態・トリガー0、ローカルコードと保存コードの一致を確認。
 2. この専用ブランチだけmainへ反映する。AUTH_CLOCK_OWNERはまだbotを維持する。auth-refreshとwatchdogに照合IDの入力定義が必要。HTTP版・QA記録切替は含めない。
-3. GASでACTIONS_CLOCK_MIGRATION_ACK=true、ACTIONS_CLOCK_ENABLED=trueとしinstallActionsClockを実行。5分トリガー1件を確認し、最初のtickとGAS照合IDによるauth-refresh到達・実成功を確認する。この短い移行期間は旧Botからの要求もあり得るが、更新担当は既存auth-refreshの共通枠1つだけ。未完了状態を見てGASは要求を控える。
+3. GASでstartActionsClockを実行（設定済みの鍵・通知先を保持し、移行ACKと時計有効化・トリガー登録を行う）。5分トリガー1件を確認し、最初のtickとGAS照合IDによるauth-refresh到達・実成功を確認する。この短い移行期間は旧Botからの要求もあり得るが、更新担当は既存auth-refreshの共通枠1つだけ。未完了状態を見てGASは要求を控える。
 4. GASの実成功確認後、GitHub変数AUTH_CLOCK_OWNER=gasを設定。旧Botを取り消さず、自然交代を待つ。新Botでは5分認証要求が止まり、認証の鮮度確認・異常通知は残る。GASトリガー由来のtickが2回動き、最終認証成功30分以内・Bot稼働・要求照合・所要時間を確認する。
-5. GASの定期到達確認後に、GitHubの保険時計を4時間にする。準備コードも既存30分設定を保持する。確認後にauth-refreshは`17 */4 * * *`、watchdogは`47 */4 * * *`へ別差分で緩める。
+5. GASの定期到達確認後に、GitHubの復旧保険時計だけを4時間にする。準備コードも既存30分設定を保持する。確認後にwatchdogだけ`47 */4 * * *`へ別差分で緩める。認証更新のauth-refreshは30分保険を維持する。
 
 切替前にGAS保存・PAT設定有無・通知先・初回承認を確認できなければ時計担当は変更しない。GASに問題が出たらstopActionsClock→AUTH_CLOCK_OWNER=bot→自然交代確認で戻す。既存Botは停止しない。
 

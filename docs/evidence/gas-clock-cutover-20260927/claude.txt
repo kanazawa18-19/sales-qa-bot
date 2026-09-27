@@ -1,0 +1,183 @@
+286 text レビュー結果をまとめます。BLOCKERは1件で、条件付きです。slack-http側のbot.ymlの設定を確認できれば解消できます。
+										287 table
+											288 row
+												289 cell
+													290 text ID
+												291 cell
+													292 text 区分
+												293 cell
+													294 text 箇所
+												295 cell
+													296 text 要点
+											297 row
+												298 cell
+													299 text B1
+												300 cell
+													301 text BLOCKER（確認できるまで）
+												302 cell
+													303 text runActionsClockOwnerSmoke / slack-http版bot.yml
+												304 cell
+													305 text 本人DM試験が本番の共通実行枠に入ると、本番Botの後継runを置き換える恐れがある
+											306 row
+												307 cell
+													308 text W1
+												309 cell
+													310 text WARN
+												311 cell
+													312 text actionsClockDispatch_ / tick
+												313 cell
+													314 text 確定拒否（401/403/404/422/429）の保留が自動で解除されず、GAS時計が止まったままになる
+											315 row
+												316 cell
+													317 text W2
+												318 cell
+													319 text WARN
+												320 cell
+													321 text tick
+												322 cell
+													323 text 結果不明の保留も解除されず、手動対応するまで固着する
+											324 row
+												325 cell
+													326 text W3
+												327 cell
+													328 text WARN
+												329 cell
+													330 text bot.yml / runtime_ops.py
+												331 cell
+													332 text AUTH_CLOCK_OWNERは稼働中のBotに反映されない。切替前はBotとGASが二重に要求する
+											333 row
+												334 cell
+													335 text W4
+												336 cell
+													337 text WARN
+												338 cell
+													339 text runtime_ops.py
+												340 cell
+													341 text owner=gasのとき、Bot側に自動復帰の仕組みがない。4時間化の範囲によってはBLOCKERになる
+											342 row
+												343 cell
+													344 text W5
+												345 cell
+													346 text WARN
+												347 cell
+													348 text tickActionsClock
+												349 cell
+													350 text GAS自体が止まったことを検知する手段がない。busyが続いても記録も通知も残らない
+											351 row
+												352 cell
+													353 text W6
+												354 cell
+													355 text WARN
+												356 cell
+													357 text tickActionsClock
+												358 cell
+													359 text Botが起動直後に落ち続けると、5分ごとに復旧要求を無制限に繰り返す
+											360 row
+												361 cell
+													362 text I1〜I7
+												363 cell
+													364 text INFO
+												365 cell
+													366 text 全体
+												367 cell
+													368 text 鍵の扱い、展開順、V8ランタイム、テスト追加、通知の遅れ、ロールバック順、クォータ
+										369 text BLOCKER B1 本人DM試験と本番の共通実行枠 既存watchdogのコメントを見ると、二重稼働は「bot.ymlの共通実行枠」で防いでいます。concurrencyは起動したref側のworkflowファイルで評価されるため、slack-http版のbot.ymlが本番と同じgroup名だと次のことが起きます。 cancel-in-progress: false の場合、本番runの終了間際に後継runがpendingになっていると、後から入った試験runがそのpendingを取り消します。同じgroupでpendingを保持できるのは1件だけだからです。その結果、本番Botは次の復旧まで止まります。
+										370 text cancel-in-progress: true の場合は、試験runが本番runをその場で取り消します。 どちらも「本番Bot取消しなし」に反します。実行前に、次の3点をslack-http側のファイルで確認してください。
+										371 content list
+											372 container
+												373 AXListMarker 1. 
+												374 text slack-http版bot.ymlのconcurrency.groupが本番と別の名前になっていること。
+											375 container
+												376 AXListMarker 2. 
+												377 text owner_dm_smoke=trueのとき、本番と同じSlack AppにSocket Modeで接続しないこと。同じAppに接続すると、本番宛てのイベントが試験側に振り分けられます。
+											378 container
+												379 AXListMarker 3. 
+												380 text owner_dm_smoke=trueのとき、QA記録（QA_CAPTURE系）を書き込まないこと。
+										381 text 1が確認できない場合は、試験を本番Botのローテーション直後に限るのでは不十分なので、groupを分けてから実行することを推奨します。 WARN W1 確定拒否の保留が解除されない 401/403/404/422/429でrejectedになった記録はACTIONS_CLOCK_AUTH_REQUESTに残ります。一致するrun名は永久に現れないため、以後のdispatchが止まります。rejectedは「起動されていない」ことが確定している状態なので、一定時間の待機後に自動で解除して再要求しても重複は起きません。たとえば429なら10分、401/403なら通知のうえ解除します。 特にトークン期限切れ（401）の後にowner=gasへ切り替わっていると、認証更新はcronだけで回ることになります。あわせて、通知文が「照合できていません」になる点も直してください。rejectedのときはrecord.codeを示すべきです。 W2 結果不明の保留も解除されない run-nameはrunの作成時に確定します。そのため、requestedAtから十分な時間（例：30分）が経っても直近100件の履歴に一致名がなければ、「作成されていない」と判断して解除できます。GASの5分要求、Botの5分要求、cronを合わせても30分で100件には達しないので、この判断は成り立ちます。現状の手動解除は安全ですが、深夜に固着すると朝までGAS時計が止まります。 W3 AUTH_CLOCK_OWNERは起動時にしか評価されない envはジョブの開始時に評価されます。Botを取り消さない運用では、Actions Variableを変えても反映されるのは次のローテーションからです。
+										382 content list
+											383 container
+												384 AXListMarker • 
+												385 text 切替が完了したかを確認できるよう、runtime_ops起動時にownerの値をログへ出してください（値のみで、秘密情報は含みません）。
+											386 container
+												387 AXListMarker • 
+												388 text 切替前の期間は、Bot（5分）とGAS（5分）の両方がauth-refreshを要求します。GASは未完了のrunを見てから送りますが、Bot側は見ません。auth-refresh.ymlにconcurrency group（cancel-in-progress: false）がなければ追加してください。認証情報の書き込みが同時に走るのを防ぐためです。
+										389 text W4 owner=gasのときBot側に自動復帰の仕組みがない GASが止まると、Botは鮮度の確認と通知しかしません。auth-refreshの30分cronは遅延や欠落が起こり得ます。最終成功が一定時間より古い場合は、ownerに関係なくBotが要求する作りを推奨します。
+										390 container pythonコード
+											391 container
+												392 button クリップボードにコピー
+											393 text python
+											394 container
+												395 text owner = os . environ . get ( "AUTH_CLOCK_OWNER" , "bot" ) recent = previous_refresh_runs () last_success =  next (( r  for  r  in  recent  if  r [ "conclusion" ]  ==  "success" ), None ) stale =  not  last_success  or  time . time ()  - <last_successの時刻> >=  15  *  60 if  owner !=  "gas" or  stale :     dispatch_refresh ()
+										396 text 計画の「GAS確認後に4時間へ変更」はbot-watchdogだけに適用し、auth-refreshは30分のまま維持してください。auth-refreshまで4時間にし、上の自動復帰もない場合は、GASが止まった時点で認証更新が最大4時間止まります。これはBLOCKERです。 W5 GAS自体の死活監視がない 次の場合、通知は1通も出ません。
+										397 content list
+											398 container
+												399 AXListMarker • 
+												400 text トリガーが消えた、または権限が失効した。
+											401 container
+												402 AXListMarker • 
+												403 text Script Lockの取得に失敗し、busyのままreturnしている。
+										404 text busyのときはhealthを保存しないため、healthActionsClockからも気づけません。同じプロジェクトにpollSalesQaがあり、同じScript Lockを使っているなら、busyは実際に起こり得ます。 対策は2つあります。まず、busyの連続回数をプロパティに記録し、閾値を超えたら通知してください。そのうえで、GitHub側（4時間のwatchdogなど）から「直近N分に『GAS認証更新』のrunがあるか」を確認すると、外側からの監視になります。 W6 復旧要求の間隔に上限がない watchdogのrunが照合されて保留が解除された後もBotが存在しなければ、次の周期で再び要求します。Botが起動直後に異常終了し続けると、5分ごとに起動を繰り返します（従来は30分）。連続回数に上限を設けるか間隔を延ばし、上限に達したら通知してください。 INFO I1 鍵の扱い
+										405 text 差分とテストに鍵の値はなく、参照名とScript Property名だけです。エラーメッセージにもレスポンス本文を出していないので問題ありません。ACTIONS_CLOCK_TOKENはfine-grained PATにして、対象リポジトリを単一に、権限をActions: Read and writeだけに絞り、有効期限と更新手順を運用メモに残してください。期限が切れるとW1の固着につながります。 I2 展開順
+										406 text mainのauth-refresh.ymlとbot-watchdog.ymlにinputsとrun-nameが入る前にGASを有効化すると、422（Unexpected inputs）でrejectedになり固着します。順番は「main反映 → Actionsの画面でinputsを確認 → GAS有効化」です。slack-http側も同様に、先にclock_request_idのinputsが入っていることを確認してください。 I3 run IDを直接受け取れる可能性
+										407 text actionsClockDispatch_はresponse.workflow_run_idを読む準備ができていますが、payloadでrunの詳細を要求していないため、常に204が返ります。GitHubのworkflow dispatch APIでrunの詳細を返すオプションが使える環境であれば、run名での照合よりも確実です。 I4 V8ランタイム
+										408 text Array.prototype.findとNumber.isIntegerを使っているため、appsscript.jsonのruntimeVersionがV8である必要があります。 I5 テストの追加候補
+										409 content list
+											410 container
+												411 AXListMarker • 
+												412 text owner=botのときはdispatchされることを確かめる回帰テスト。
+											413 container
+												414 AXListMarker • 
+												415 text ownerの値が'GAS'（大文字）の場合にbot扱いになること。現状は安全側に倒れますが、仕様として固定しておくとよいです。
+											416 container
+												417 AXListMarker • 
+												418 text rejectedの保留があるときの次周期の挙動。
+											419 container
+												420 AXListMarker • 
+												421 text run-nameが未反映で照合できないときの挙動。
+										422 text I6 通知の遅れ
+										423 text 1時間の抑制があるため、稼働報告（ok）の直後に起きた障害は、通知が最大1時間遅れます。仕様として運用メモに明記しておくことを推奨します。 I7 ロールバックとクォータ
+										424 text ロールバックは「owner=botに戻す → 次のBot runのログで反映を確認 → stopActionsClock」の順で行ってください。逆にすると、Bot側がまだgasのまま時計が止まり、空白期間ができます。 クォータは、1周期あたり最大17回程度のUrlFetchで、1日約5,000回です。UrlFetch自体の上限には収まりますが、無料アカウントの場合はトリガー実行時間の上限（1日90分）を、同じプロジェクト内の他トリガーと合算して確認してください。 切替判定の確認項目
+										425 content list
+											426 container
+												427 AXListMarker 1. 
+												428 text B1の3点を確認し、本人DM試験を実行する。
+											429 container
+												430 AXListMarker 2. 
+												431 text main反映後にGASを有効化する。Actions履歴に「GAS認証更新 <照合ID>」が出ること、保留が解除されること、稼働報告のメールが届くことを確認する。
+											432 container
+												433 AXListMarker 3. 
+												434 text AUTH_CLOCK_OWNER=gasに設定し、次のBot runのログでownerを確認する。
+											435 container
+												436 AXListMarker 4. 
+												437 text 一定期間安定したら、bot-watchdogだけを4時間に変更する。
+								438 toolbar メッセージアクション
+									439 button コピー
+									440 button 読み上げ
+									441 checkbox Description: 良い回答, Value: 0
+									442 checkbox Description: 悪い回答, Value: 0
+									443 button 再試行
+									444 text 2 分前
+					268 button 最下部までスクロール
+					148 container
+						149 container
+						150 container
+							151 container
+								152 container
+									153 text entry area (settable) Description: Claudeへのプロンプトを入力してください, Value: 
+
+								154 pop up button (collapsed) Description: ファイルやコネクタなどを追加, ID: base-ui-_r_ai_, Secondary Actions: Expand
+								445 container
+									446 button 音声入力
+									447 container ボイスモードを開始
+										448 button ボイスモードを開始
+										449 pop up button (collapsed) Description: マイク, ID: base-ui-_r_en_, Secondary Actions: Expand
+							159 link Description: Claude は AI であり、間違えることがあります。 回答は必ずご確認ください。, Value: support.anthropic.com/en/articles/8525154-claude-is-providing-incorrect-or-misleading-responses-what-s-going-on
+							160 pop up button (collapsed) Description: モデル: Opus 5.5 中, ID: base-ui-_r_c9_, Secondary Actions: Expand
+								161 text Opus 5.5
+								162 text 中
+		122 container
+			123 container Notifications
+
+The focused UI element is 153 text entry area (settable) Description: Claudeへのプロンプトを入力してください, Value: 
+
+URL: https://claude.ai/chat/67ef233b-7e71-4a4d-b3f4-575584fd29fd

@@ -122,6 +122,7 @@ def dispatch_refresh():
 
 
 def supervise(duration=24 * 60, interval=5 * 60):
+    print("AUTH_CLOCK_OWNER=" + ("gas" if os.environ.get("AUTH_CLOCK_OWNER", "bot") == "gas" else "bot"), flush=True)
     root = Path(__file__).resolve().parents[1]
     child = subprocess.Popen([sys.executable, "bot.py"], cwd=root / "src")
     launched = time.monotonic()

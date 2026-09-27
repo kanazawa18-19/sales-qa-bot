@@ -20,3 +20,15 @@ AUTH_CLOCK_OWNER=gasでBotの認証起動だけを止め、鮮度確認を維持
 Chrome連携の軽い操作が2回とも`Unable to load browser request-header policy`で失敗。公式診断4本でChrome起動中、Profile18の拡張installed/enabled、native host設定correctを確認。設定の手修正、他方式のブラウザ操作、Chrome/ChatGPT再起動はしていない。公式chrome-troubleshooting手順は、全診断正常で通信失敗の場合に本人承認後の専用profileウィンドウ起動を案内している。
 
 GAS保存・トリガー登録・定期到達・GitHubでの認証実成功・時計担当切替は未実施。現行Botは既存時計を維持。次はChrome接続復旧→他社レビュー→GAS保存・保存一致照合→限定main反映→GAS時計有効化と定期実到達→AUTH_CLOCK_OWNER切替→自然交代確認。
+
+## Chrome復旧後の追加確認
+
+本人が専用ウィンドウ起動を承認。公式スクリプトの通常実行はOS起動エラー、承認されたsandbox外実行でProfile18専用ウィンドウを開きChrome接続復旧。GAS ActionsClockを保存、再読込して全コピー一致を確認。
+
+Gemini Thinking（https://gemini.google.com/app/42a918a466e1b388?hl=ja）とClaude Opus5.5中（https://claude.ai/chat/67ef233b-7e71-4a4d-b3f4-575584fd29fd）へ新差分を送信・回答取得完了。資料27271 bytes、SHA256 cd0093a59deb6e353b652268612f44007edb498c57e8948ebdbf7275f10ed46a、鍵パターン0件。txt添付は拡張ファイルURL権限で失敗、権限変更なしで同じ資料を専用入力へ挿入。Gemini入力とClaude貼付資料プレビューの空白除外全文一致を確認。原文gemini.txt/claude.txt。
+
+- Gemini：試験のclock_request_id未定義BLOCKERはslack-http版の定義で誤検知と判定。待機中の稼働判定と通知の限界は既知として残す。
+- Claude：本人試験が本番枠を共有する条件付きBLOCKERはslack-httpの本人試験別group・通常Bot起動除外で解消。今回本人DM試験を実行しない。認証保険4時間化の条件付きBLOCKERを採用し、auth-refreshの30分保険は維持、watchdogだけGAS実機確認後4時間化とした。結果不明や確定拒否の自動解除は不採用（GAS安全側の保留を維持）。旧Botが起動時設定を保持する点は自然交代確認で対応。GAS停止時の外側監視、起動準備失敗連鎖は別改善として残す。
+- 小追加：設定済み鍵/通知先を保持して有効化するstartActionsClock、runtimeの時計担当起動ログを追加。独立sec/QAでBLOCKERなし、Node36/Python6成功。GAS実機有効化・定期到達は次の確認。
+
+設定確認の再実行をauto-reviewが拒否。実行履歴を読んで、最初の実行が停止中tickActionsClockでありhealth未実行だったことを確認。healthActionsClockがgetProperty/getProjectTriggers/console.logだけで書込や通信が無いことをコードで検証し、正しい選択状態からの初回health実行は通常審査で許可・成功。enabled=false、migrationAck=false、tokenConfigured=true、triggerCount=0、保留認証/復旧null、既存smoke記録保持を確認。

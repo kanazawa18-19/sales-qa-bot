@@ -129,6 +129,20 @@ function tickActionsClock() {
   console.log(JSON.stringify(health));
   return health;
 }
+// 設定済みの鍵と通知先を保持したまま、本人指示の時計切替を開始する。
+function startActionsClock() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) throw new Error('CLOCK_BUSY');
+  var props = actionsClockProps_();
+  try {
+    if (!props.getProperty('ACTIONS_CLOCK_TOKEN') || !props.getProperty('HEALTH_EMAIL')) throw new Error('CLOCK_CONFIG_REQUIRED');
+    props.setProperty('ACTIONS_CLOCK_MIGRATION_ACK', 'true');
+    props.setProperty('ACTIONS_CLOCK_ENABLED', 'true');
+    try { installActionsClock(); }
+    catch (e) { props.setProperty('ACTIONS_CLOCK_ENABLED', 'false'); throw e; }
+    console.log('CLOCK_STARTED triggerCount=' + ScriptApp.getProjectTriggers().filter(function(t) {return t.getHandlerFunction() === 'tickActionsClock';}).length);
+  } finally { lock.releaseLock(); }
+}
 function installActionsClock() {
   var props = actionsClockProps_();
   if (props.getProperty('ACTIONS_CLOCK_ENABLED') !== 'true' ||
