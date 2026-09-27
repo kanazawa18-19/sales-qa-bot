@@ -1,6 +1,6 @@
 # GASの5分時計への切替
 
-2026-09-27、本番GASの5分トリガーを登録済み。履歴照合を修正し、19:50の定期実行で正常判定・次の認証要求を確認。時計担当はgasへ設定済みで、既存Botの自然交代を確認中。実機記録は `docs/evidence/gas-clock-cutover-20260927/live-cutover.md`。
+2026-09-27、本番GASの5分時計へ切替完了。保存一致・修正後6回連続の定期正常判定・認証更新の実成功・通常Botの自然交代を確認。新Bot run36315194803（372d9f0）はAUTH_CLOCK_OWNER=gasで稼働。GitHub停止確認4時間、認証30分の保険を維持。実機記録は `docs/evidence/gas-clock-cutover-20260927/live-cutover.md`。
 
 ```text
 GAS 5分時計 → 認証更新の未完了なし → auth-refresh（既存の更新担当）
