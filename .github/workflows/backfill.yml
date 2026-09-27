@@ -24,6 +24,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
+          QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
           GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}

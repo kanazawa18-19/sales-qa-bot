@@ -37,6 +37,17 @@ class CaptureSwitchTests(unittest.TestCase):
         sheets.upsert_qa.assert_called_once()
         notion.upsert_qa.assert_called_once()
 
+    def test_backfill_off_does_not_initialize_external_clients(self):
+        slack, sheets, notion = Mock(), Mock(), Mock()
+        scope = functions("backfill.py", ["main"], {
+            "os": os, "logger": logging.getLogger("test"),
+            "WebClient": slack, "SheetsClient": sheets, "NotionClient": notion})
+        with patch.dict(os.environ, {"QA_CAPTURE_ENABLED": "false"}):
+            scope["main"]()
+        slack.assert_not_called()
+        sheets.assert_not_called()
+        notion.assert_not_called()
+
     def bot_scope(self, enabled):
         ai = Mock()
         ai.answer.return_value = ("NotebookLM回答", [])

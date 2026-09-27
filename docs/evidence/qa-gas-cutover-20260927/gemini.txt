@@ -1,0 +1,120 @@
+640 heading Gemini の回答, Value: 6
+									641 text Gemini の回答
+								642 container model-response-message-contentr_625a1d998faee047
+									643 text 提示されたJavaScript（GAS）およびPythonの差分コードについて、再実行時の状態遷移、例外発生時のロールバック、重複記録のリスク等の観点からレビューを実施しました。
+									644 heading レビュー結果まとめ, Value: 3
+										645 text レビュー結果まとめ
+									646 content list
+										647 container
+											648 text BLOCKER : なし（本番切り替えの安全制御・事前検証ロジックが手厚く実装されています）
+										649 container
+											650 text WARN : 3件（タイムスタンプ計算の挙動、 inspect 内の冗長処理、例外時のプロパティ部分残存）
+										651 container
+											652 text INFO : 3件（通信前ブロック、トリガー登録失敗時のガード、重複記録抑止の構造）
+									653 heading ⚠️ WARN（注意・要確認事項）, Value: 3
+										654 text ⚠️ WARN（注意・要確認事項）
+									655 heading 1. RECENT_THROUGH_TS の算出ロジックと重ね読み範囲, Value: 4
+										656 text 1. 
+										657 text RECENT_THROUGH_TS
+										658 text  の算出ロジックと重ね読み範囲
+									659 content list
+										660 container
+											661 text 対象箇所 :  gas/QaCutover.js  →  prepareQaProduction()
+									662 container
+										663 text JavaScript
+										664 container
+											665 button コードをダウンロードする
+											666 button コードをコピー
+										667 text var  state = rows_(sheet_(b,  'STATE' )).find( function ( r )  { return  r[ 0 ] ===  'last_processed_ts' ;});
+p.setProperty( 'RECENT_THROUGH_TS' ,  String ( Math .min(state &&  /^\d+(\.\d+)?$/ .test(state[ 1 ]) ?  Number (state[ 1 ]) :  Infinity ,  Date .now()/ 1000  -  86400 )));
+
+									668 content list
+										669 container
+											670 text 不具合・影響リスク :
+											671 content list
+												672 container
+													673 text Math.min  は小さい方（より過去の時刻）を選択するため、Python側で直近（例: 10分前）まで処理が進んでいて  last_processed_ts  が更新されていても、 RECENT_THROUGH_TS  は必ず  24時間前（ Date.now()/1000 - 86400 ）  にセットされます。
+												674 container
+													675 text 「直近の処理位置から重ねて読む（ただし最大24時間前まで）」という意図である場合、 Math.min  ではなく  Math.max （より新しい時刻を選択）にする必要があります。現状の  Math.min  だと  last_processed_ts  がどれだけ直近であっても強制的に24時間分の再スキャンが発生します。
+												676 text ※「過去24時間分を常に丸ごと重ね読みし、重複チェック層に任せる」という仕様であれば問題ありませんが、処理量増加に注意してください。
+									677 heading 2. inspectQaProduction() 内の冗長呼び出しと副作用の可能性, Value: 4
+										678 text 2. 
+										679 text inspectQaProduction()
+										680 text  内の冗長呼び出しと副作用の可能性
+									681 content list
+										682 container
+											683 text 対象箇所 :  gas/QaCutover.js  →  inspectQaProduction()
+									684 container
+										685 text JavaScript
+										686 container
+											687 button コードをダウンロードする
+											688 button コードをコピー
+										689 text sheet_(b,  'CORRECTIONS' );
+...
+notionQuestionDateType_(c);
+...
+ latestParents : ...,  notionSource : sourceId_(c),  notionDateType : notionQuestionDateType_(c)};
+
+									690 content list
+										691 container
+											692 text 不具合・影響リスク :
+											693 content list
+												694 container
+													695 text notionQuestionDateType_(c)  が関数内で2回呼び出されています。Notion APIへのリクエストを伴う場合、無駄な通信コストおよびレート制限リスクが生じます。
+												696 container
+													697 text sheet_(b, 'CORRECTIONS')  の戻り値が使われていません。もし  sheet_()  の内部実装が「存在しないタブを自動生成する」ロジックになっている場合、読み取り専用であるべき  inspect  実行時にスプレッドシートへの変更（タブ作成）という副作用が発生します。
+									698 heading 3. prepareQaProduction() 途中失敗時のScriptPropertiesの状態, Value: 4
+										699 text 3. 
+										700 text prepareQaProduction()
+										701 text  途中失敗時のScriptPropertiesの状態
+									702 content list
+										703 container
+											704 text 対象箇所 :  gas/QaCutover.js  →  prepareQaProduction()
+										705 container
+											706 text 不具合・影響リスク :
+											707 content list
+												708 container
+													709 text p.setProperties(QA_PRODUCTION)  が実行された後、後続の  prepareSalesQa()  やスプレッドシート操作で例外が投げられた場合、 QA_PRODUCTION_PREPARED  フラグはセットされませんが、 GOOGLE_SPREADSHEET_ID  等のScriptPropertiesは更新されたまま残ります。
+												710 container
+													711 text startQaProduction()  側で  QA_PRODUCTION_PREPARED !== 'true'  をガードしているため誤記録の開始自体は防げますが、完全なトランザクションロールバックにはならない点に留意してください（再度  prepareQaProduction()  を実行すれば上書き修復は可能です）。
+									712 heading ℹ️ INFO（確認済み・適切な実装）, Value: 3
+										713 text ℹ️ INFO（確認済み・適切な実装）
+									714 heading 1. Python側の外部通信ブロックとテストカバレッジ, Value: 4
+										715 text 1. Python側の外部通信ブロックとテストカバレッジ
+									716 content list
+										717 container
+											718 text 評価 :  src/backfill.py  の冒頭で  QA_CAPTURE_ENABLED=false  時に  WebClient  や  SheetsClient  等のインスタンス化前に早期  return  しており、不要な認証や通信が発生しません。 test_backfill_off_does_not_initialize_external_clients  でその挙動が担保されています。
+									719 heading 2. startQaProduction() のロールバック制御, Value: 4
+										720 text 2. 
+										721 text startQaProduction()
+										722 text  のロールバック制御
+									723 content list
+										724 container
+											725 text 評価 :  installSalesQaTrigger()  が失敗した場合、 catch  ブロックで即座に  p.setProperty('ENABLED', 'false')  へ戻す処理が入っており、不完全な状態（トリガーなしで有効化のみ完了）での放置が防がれています。
+									726 heading 3. 重複記録の可能性について, Value: 4
+										727 text 3. 重複記録の可能性について
+									728 content list
+										729 container
+											730 text 評価 :  prepareQaProduction()  で  GAS_STAGE  および  GAS_STAGE_RECENT  のステージングシートをクリアし、 RECENT_THROUGH_TS  を設定した上で、GAS側の記録処理が既存の「同期ID表」や「シート/Notionの識別キー（upsert）」を参照する設計であれば、重ね読みによる重複投稿・重複記録は適切に抑止されます。
+								731 checkbox Description: 良い回答, Value: 0
+								732 checkbox Description: 悪い回答, Value: 0
+								733 button やり直す
+								734 button コピー
+								735 button 他のオプションを表示
+					60 container
+						61 container
+							62 container
+								63 container
+									64 text entry area (settable) Description: Gemini へのプロンプトを入力, Value: 
+
+										736 text Gemini に相談
+										737 text encrypted
+								67 pop up button (collapsed) Description: アップロードとツール, Secondary Actions: Expand
+								243 pop up button (collapsed) Description: モード選択ツールを開く（現在のモデル: 思考モード）, Secondary Actions: Expand
+								438 container
+									439 button 音声入力 (⌘⇧D)
+						440 text CNCTOR のチャットはモデルのトレーニングには使用されません。Gemini は AI であり、不正確な情報を表示することがあります。
+						441 link Description: プライバシーと Gemini 新しいウィンドウで開く, Value: support.google.com/gemini/answer/14620100
+		738 text Refining Blockers and Warnings
+
+The focused UI element is 64 text entry area (settable) Description: Gemini へのプロンプトを入力, Value: 

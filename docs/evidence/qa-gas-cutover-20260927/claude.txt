@@ -1,0 +1,81 @@
+container チャットメッセージ
+						99 text 上下の矢印キーを使用してメッセージ間を移動します。
+						100 container
+							101 container 2件中1件目のメッセージ
+								102 heading あなたのメッセージ: 資料の指示に沿って、日本語でレビューしてください。, Value: 2
+									103 text あなたのメッセージ: 資料の指示に沿って、日本語でレビューしてください。
+								104 button 貼り付けたテキスト, pasted, 183行
+									105 text QA記録をPythonからGASへ移す差分のレビュー。日本語でBLOCKER/WARN/INFO。 本人が本番切替まで指示。通常Bot停止・Slack試験投稿なし。既存NotebookLM回答とGAS Actions時計は維持。既存Core/Mainは変更せず、本番のシート1/NotionDB/QAチャンネルを読み取り照合した。inspectは読取のみ。prepareは記録無効のまま補助タブを作り巡回状態だけ初期化。Python QA_CAPTURE_ENABLED=false→旧Bot自然終了→新Botのfalseログ確認→startQaProduction。GitHubbackfillも同
+									106 text PASTED
+								107 text 資料の指示に沿って、日本語でレビューしてください。
+								137 toolbar メッセージアクション
+									138 text 3 分前
+									139 button 再試行
+									140 button 編集
+									141 button コピー
+							109 container 2件中2件目のメッセージ
+								142 container
+									143 heading Value: 2, Claudeが返答しました: 結論として、BLOCKERはありません。ただし、W1〜W3は既存のconfig、sheet、prepareSalesQaなどの実装を見ないと判定できず、確認結果によってはBLOCKERになります。切替の順序（記録無効のまま準備 → Python停止の確認 → 開始）は、DISABLEFIRST・QAPREPARERE…
+										144 text Claudeが返答しました: 結論として、BLOCKERはありません。ただし、W1〜W3は既存のconfig、sheet、prepareSalesQaなどの実装を見ないと判定できず、確認結果によってはBLOCKERになります。切替の順序（記録無効のまま準備 → Python停止の確認 → 開始）は、DISABLEFIRST・QAPREPARERE…
+									145 container フェイルオープン設定の影響を確認中。
+										146 text フェイルオープン設定の影響を確認中。
+										147 button (collapsed) フェイルオープン設定の影響を確認中。, Secondary Actions: Expand
+									148 text フェイルオープン設定の影響を確認中。
+									149 container
+										150 text 結論として、BLOCKERはありません。ただし、W1〜W3は既存のconfig_、sheet_、prepareSalesQaなどの実装を見ないと判定できず、確認結果によってはBLOCKERになります。切替の順序（記録無効のまま準備 → Python停止の確認 → 開始）は、DISABLE_FIRST・QA_PREPARE_REQUIRED・QA_TARGET_MISMATCHの前提チェックでコード上も守られており、方針は妥当です。 BLOCKER なし WARN W1 inspectの照合先がconfig_の派生値に依存している（QaCutover.js inspectQaProduction）
+										151 text c.qaとc.channelsを手で上書きしているので、config_()はc.pから派生値を作っていると考えられます。スプレッドシートID、シート名、NotionDB IDにも派生値やキャッシュがある場合、book_やsourceId_は旧（検証）先を読みます。その結果、本番を照合したつもりで検証先を見ていることになります。テストのconfig_は{p}だけを返すモックなので、この問題は検出できません。
+										152 text 対策：config_に上書き用のpropsを渡して組み立て直す形にします。あわせて、inspectの出力にスプレッドシート名とNotionDBタイトルを含め、目視でも照合できるようにしてください。 W2 inspectが本当に読み取りだけか（inspectQaProduction）
+										153 text sheet_が「なければ作成する」実装の場合、次の2つが起きます。
+										154 text (a) CORRECTIONSタブを本番ブックに作ってしまう。
+										155 text (b) シート名が違っていても空の「シート1」を作り、rows=-1で正常終了する。取り違えを検出できない。
+										156 text また、sourceId_が解決結果をScript Propertiesにキャッシュする実装だと、inspectを単独で実行したときに旧DB IDと新data source IDが混在した状態が残ります。
+										157 text 対策：inspect専用に、getSheetByNameで存在しなければthrowするヘルパーを使います。sourceId_にはキャッシュしない経路を用意してください。 W3 ロックの入れ子（prepareQaProduction / startQaProduction）
+										158 text prepareSalesQaやinstallSalesQaTriggerが内部でgetScriptLock()を取る場合、GASの実装次第で次のどちらかになります。
+										159 text ・内側のreleaseLock()で外側のロックも外れ、その後のプロパティ削除とSTAGE消去がロックなしで走る。
+										160 text ・毎回QA_BUSYで失敗する。
+										161 text テストのtryLockは常にtrueを返すため、どちらも検出できません。
+										162 text 対策：両関数がロックを取らないことを確認するか、ロックなしの内部版を分けて呼んでください。 W4 重ね読みの起点が準備時刻を基準にしている（RECENT_THROUGH_TSの算出）
+										163 text 起点はmin(last_processed_ts, 準備時刻−24h)です。last_processed_tsはAI経路でも進むため、実質的には常に「準備時刻−24h」になります。手順どおり「準備 → Python停止」の順なら問題ありません。しかし、Pythonの記録停止から24時間以上たって準備（再準備を含む）すると、停止時刻から（準備−24h）までの区間を新着laneが読みません。この区間はdeep laneだけが頼りで、返信のない親投稿まで拾えるかは確認が必要です。
+										164 text 対策：起点を「シート1または同期ID表に記録済みの最大Slack ts」にします。もしくは、start時に起点がPython停止時刻より前であることを検証してください。 W5 シート1の列構成と人手管理列を照合していない
+										165 text inspectは行数しか見ていません。GASの列マッピングと本番のヘッダーが一致しない場合、人手管理列の上書きや列ずれが本番で起きます。
+										166 text 対策：ヘッダー行を期待値と比較し、不一致ならthrowします。Notionもdate型だけでなく、書き込むプロパティ名と型をまとめて検証してください。 W6 prepareSalesQaの本番ブックへの副作用
+										167 text setPropertiesの後に呼ぶため、本番ブックに対して動きます。ヘッダーの書き直しや、STATE・同期ID表の初期化をしないこと、また冪等であることを確認してください（テストではモックになっています）。 W7 二重記録の防止が人手の確認だけに頼っている（startQaProduction）
+										168 text Python側がOFFになったかを機械的に確認していません。GASがすでにActions時計でGitHubと通信しているなら、次の2点をAPIで確かめてからENABLED=trueにすると、手順ミスがあっても止まります。
+										169 text ・リポジトリ変数QA_CAPTURE_ENABLEDが'false'であること
+										170 text ・変数変更前に開始したbot/backfillのrunが実行中でないこと W8 Python側の既定値がtrue（fail-open）になっている（backfill.yml / backfill.py / runtime_ops.py）
+										171 text 切替後に変数を削除したり、"0"・"off"・前後に空白が入るといった表記ゆれがあったりすると、Pythonの記録が復活し、GASと同時に書き込みます。切替完了後は既定値をfalseに寄せるか、Pythonの記録経路の撤去を予定に入れてください。
+										172 text また、diffに含まれていないbot用workflowが同じvars.QA_CAPTURE_ENABLEDを渡しているかも確認が必要です。渡していなければログは常にtrueになり、手順がそこで止まります（安全側の失敗ではあります）。 INFO I1 backfill.mainの早期returnはWebClient・Sheets・Notionの初期化より前にあり、「通信前に終了」を満たしています。テストでも初期化されないことを確認できています。 I2 superviseのログは、Popenにenvを渡していないため子プロセスが実際に使う値と一致します。切替確認の根拠として有効です。 I3 notionQuestionDateType_(c)を2回呼んでいるので、1回にまとめられます。 I4 rows: values.length − 1は、空シートだと-1になります。latestParentsにはhistoryに含まれる参加通知なども入るため、名前と中身がずれています。subtypeで除外するか、名前を変えてください。 I5 Slackのtsは16桁あるため、Number化すると丸めが起きることがあります。重ね読みがあるので実害は小さいですが、文字列のまま比較するほうが安全です。 I6 start成功後もQA_PRODUCTION_PREPAREDが残ります。一時停止から再開する際に再準備を不要にする意図であれば問題ありませんが、その旨をコメントに残してください。 I7 NotionDBに複数のdata sourceがある場合、sourceId_がどれを選ぶかを確認してください。 I8 テストが不足しているケースは次のとおりです。
+										173 text ・prepare成功時にQA_PRODUCTION_PREPARED='true'になり、保存先4項目が設定されること
+										174 text ・削除対象の10キーがすべて消えること
+										175 text ・inspect → prepareSalesQaの呼び出し順
+										176 text ・last_processed_tsが24時間以内・欠損・不正値の各ケース
+										177 text ・QA_BUSYになる経路 本番切替の前に、最低限W1〜W3の確認とW4の起点の扱いを決めておくことをお勧めします。
+								178 toolbar メッセージアクション
+									179 button コピー
+									180 button 読み上げ
+									181 checkbox Description: 良い回答, Value: 0
+									182 checkbox Description: 悪い回答, Value: 0
+									183 button 再試行
+									184 text 今
+					185 button 最下部までスクロール
+					115 container
+						116 container
+						121 container
+							122 container
+								123 container
+									124 text entry area (settable) Description: Claudeへのプロンプトを入力してください, Value: 
+
+								125 pop up button (collapsed) Description: ファイルやコネクタなどを追加, ID: base-ui-_r_al_, Secondary Actions: Expand
+								186 container
+									187 button 音声入力
+									188 container ボイスモードを開始
+										189 button ボイスモードを開始
+										190 pop up button (collapsed) Description: マイク, ID: base-ui-_r_ej_, Secondary Actions: Expand
+							130 link Description: Claude は AI であり、間違えることがあります。 回答は必ずご確認ください。, Value: support.anthropic.com/en/articles/8525154-claude-is-providing-incorrect-or-misleading-responses-what-s-going-on
+							131 pop up button (collapsed) Description: モデル: Opus 5.5 中, ID: base-ui-_r_cc_, Secondary Actions: Expand
+								132 text Opus 5.5
+								133 text 中
+		134 container
+			135 container Notifications
+
+The focused UI element is 124 text entry area (settable) Description: Claudeへのプロンプトを入力してください, Value: 

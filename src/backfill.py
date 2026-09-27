@@ -58,6 +58,9 @@ def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
 
 
 def main():
+    if os.environ.get("QA_CAPTURE_ENABLED", "true").lower() == "false":
+        logger.info("QA_CAPTURE_ENABLED=false: GASが記録を担当するため終了")
+        return
     slack = WebClient(token=os.environ["SLACK_BOT_TOKEN"], timeout=60)
     sheets = SheetsClient()
     notion = NotionClient()

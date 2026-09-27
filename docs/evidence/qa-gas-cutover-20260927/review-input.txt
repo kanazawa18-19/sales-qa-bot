@@ -1,0 +1,182 @@
+QA記録をPythonからGASへ移す差分のレビュー。日本語でBLOCKER/WARN/INFO。
+本人が本番切替まで指示。通常Bot停止・Slack試験投稿なし。既存NotebookLM回答とGAS Actions時計は維持。既存Core/Mainは変更せず、本番のシート1/NotionDB/QAチャンネルを読み取り照合した。inspectは読取のみ。prepareは記録無効のまま補助タブを作り巡回状態だけ初期化。Python QA_CAPTURE_ENABLED=false→旧Bot自然終了→新Botのfalseログ確認→startQaProduction。GitHubbackfillも同じfalseで通信前に終了。
+本番の共有STATEはAI経路でも進むため、新着は24時間前まで重ね読み。古い親返信はdeep全履歴laneが巡回。同期ID表と人手管理列を保持。開始前に旧backfill未完了なしも確認。実機は定期pollと実Sheets/Notion記録を照合、架空投稿はしない。
+diff --git a/.github/workflows/backfill.yml b/.github/workflows/backfill.yml
+index 6b48b1f..394b20a 100644
+--- a/.github/workflows/backfill.yml
++++ b/.github/workflows/backfill.yml
+@@ -24,6 +24,7 @@ jobs:
+         env:
+           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+           QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
++          QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
+           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+           GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+diff --git a/scripts/runtime_ops.py b/scripts/runtime_ops.py
+index 3cbc259..0a42272 100644
+--- a/scripts/runtime_ops.py
++++ b/scripts/runtime_ops.py
+@@ -122,6 +122,7 @@ def dispatch_refresh():
+ 
+ 
+ def supervise(duration=24 * 60, interval=5 * 60):
++    print("QA_CAPTURE_ENABLED=" + ("false" if os.environ.get("QA_CAPTURE_ENABLED", "true").lower() == "false" else "true"), flush=True)
+     print("AUTH_CLOCK_OWNER=" + ("gas" if os.environ.get("AUTH_CLOCK_OWNER", "bot") == "gas" else "bot"), flush=True)
+     root = Path(__file__).resolve().parents[1]
+     child = subprocess.Popen([sys.executable, "bot.py"], cwd=root / "src")
+diff --git a/src/backfill.py b/src/backfill.py
+index 724eda3..13b8e9a 100644
+--- a/src/backfill.py
++++ b/src/backfill.py
+@@ -58,6 +58,9 @@ def get_thread(slack: WebClient, channel: str, thread_ts: str) -> list[dict]:
+ 
+ 
+ def main():
++    if os.environ.get("QA_CAPTURE_ENABLED", "true").lower() == "false":
++        logger.info("QA_CAPTURE_ENABLED=false: GASが記録を担当するため終了")
++        return
+     slack = WebClient(token=os.environ["SLACK_BOT_TOKEN"], timeout=60)
+     sheets = SheetsClient()
+     notion = NotionClient()
+diff --git a/tests/test_capture_switch.py b/tests/test_capture_switch.py
+index 09257fe..ff0400c 100644
+--- a/tests/test_capture_switch.py
++++ b/tests/test_capture_switch.py
+@@ -37,6 +37,17 @@ class CaptureSwitchTests(unittest.TestCase):
+         sheets.upsert_qa.assert_called_once()
+         notion.upsert_qa.assert_called_once()
+ 
++    def test_backfill_off_does_not_initialize_external_clients(self):
++        slack, sheets, notion = Mock(), Mock(), Mock()
++        scope = functions("backfill.py", ["main"], {
++            "os": os, "logger": logging.getLogger("test"),
++            "WebClient": slack, "SheetsClient": sheets, "NotionClient": notion})
++        with patch.dict(os.environ, {"QA_CAPTURE_ENABLED": "false"}):
++            scope["main"]()
++        slack.assert_not_called()
++        sheets.assert_not_called()
++        notion.assert_not_called()
++
+     def bot_scope(self, enabled):
+         ai = Mock()
+         ai.answer.return_value = ("NotebookLM回答", [])
+
+新ファイルgas/QaCutover.js:
+/* QA記録先だけを切り替える。既存の認証情報とActions時計は保持する。 */
+var QA_PRODUCTION = {
+  GOOGLE_SPREADSHEET_ID: '1uZpR4M8spaNV9cEXQ4_jB_NOu6w8j2HIGwnyUNQl28Y',
+  GOOGLE_SHEET_NAME: 'シート1', NOTION_DATABASE_ID: '60255780-4556-4b86-b83c-9ebc579ce31a',
+  QA_CHANNEL_ID: 'C05LY9ZN41Z'
+};
+function inspectQaProduction() {
+  var c = config_();
+  c.p = Object.assign({}, c.p, QA_PRODUCTION);
+  delete c.p.NOTION_DATA_SOURCE_ID;
+  c.qa = QA_PRODUCTION.QA_CHANNEL_ID; c.channels = [c.qa];
+  var b = book_(c), s = sheet_(b, c.p.GOOGLE_SHEET_NAME), values = rows_(s);
+  sheet_(b, 'CORRECTIONS');
+  var channel = slack_(c, 'conversations.info', {channel: c.qa}).channel;
+  if (!channel || channel.id !== c.qa || channel.is_archived) throw new Error('QA_CHANNEL_MISMATCH');
+  notionQuestionDateType_(c);
+  var history = slack_(c, 'conversations.history', {channel: c.qa, limit: 15});
+  var out = {enabled: PropertiesService.getScriptProperties().getProperty('ENABLED') === 'true',
+    targets: QA_PRODUCTION, rows: values.length - 1, channelName: channel.name,
+    latestParents: (history.messages || []).map(function(m) {return {ts:m.ts, replyCount:m.reply_count || 0};}),
+    notionSource: sourceId_(c), notionDateType: notionQuestionDateType_(c)};
+  console.log(JSON.stringify(out)); return out;
+}
+function prepareQaProduction() {
+  var p = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) throw new Error('QA_BUSY');
+  try {
+    if (p.getProperty('ENABLED') === 'true') throw new Error('DISABLE_FIRST');
+    if (p.getProperty('NOTION_CREATE_PENDING')) throw new Error('NOTION_CREATE_RECONCILE');
+    p.deleteProperty('QA_PRODUCTION_PREPARED');
+    inspectQaProduction();
+    p.setProperties(QA_PRODUCTION);
+    p.deleteProperty('NOTION_DATA_SOURCE_ID');
+    prepareSalesQa();
+    ['SCAN_STATE', 'RECENT_STATE', 'RECENT_THROUGH_TS', 'CYCLE_THROUGH_TS',
+      'LAST_RUN_SUCCESS', 'LAST_RECENT_CYCLE_SUCCESS', 'LAST_CYCLE_SUCCESS', 'LAST_SYNC_VERIFIED',
+      'HEALTH', 'RETRY_AT'].forEach(function(k) {p.deleteProperty(k);});
+    var b = book_(config_());
+    ['GAS_STAGE', 'GAS_STAGE_RECENT'].forEach(function(n) {sheet_(b,n).clearContents();});
+    // 直近の記録位置から重ねて読み、交代待ちの間の発言を取り逃さない。
+    var state = rows_(sheet_(b, 'STATE')).find(function(r) {return r[0] === 'last_processed_ts';});
+    p.setProperty('RECENT_THROUGH_TS', String(Math.min(state && /^\d+(\.\d+)?$/.test(state[1]) ? Number(state[1]) : Infinity, Date.now()/1000 - 86400)));
+    p.setProperty('QA_PRODUCTION_PREPARED', 'true');
+    console.log('QA_PRODUCTION_PREPARED');
+  } finally {lock.releaseLock();}
+}
+// Python記録OFFの新Bot起動を確認した後だけ実行する。
+function startQaProduction() {
+  var p = PropertiesService.getScriptProperties(), lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) throw new Error('QA_BUSY');
+  try {
+    if (p.getProperty('QA_PRODUCTION_PREPARED') !== 'true') throw new Error('QA_PREPARE_REQUIRED');
+    var c = config_();
+    Object.keys(QA_PRODUCTION).forEach(function(k) {if (c.p[k] !== QA_PRODUCTION[k]) throw new Error('QA_TARGET_MISMATCH');});
+    p.setProperty('ENABLED', 'true');
+    try {installSalesQaTrigger();} catch(e) {p.setProperty('ENABLED', 'false'); throw e;}
+    console.log('QA_RECORDING_STARTED');
+  } finally {lock.releaseLock();}
+}
+
+テスト:
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+function setup(initial = {}) {
+  const p = {...initial}, tabs = [], calls = [];
+  const props = {getProperty:k=>p[k] || null, setProperty:(k,v)=>p[k]=v,
+    setProperties:v=>Object.assign(p,v), deleteProperty:k=>delete p[k]};
+  const ctx = vm.createContext({console:{log(){}},PropertiesService:{getScriptProperties:()=>props},
+    LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},
+    config_:()=>({p:{...p}}), book_:()=>({}), sheet_:(b,n)=>({name:n,clearContents(){tabs.push(n);}}),
+    rows_:s=>s.name==='STATE'?[['last_processed_ts','123.45']]:[],
+    prepareSalesQa:()=>calls.push('prepare'),installSalesQaTrigger:()=>calls.push('install')});
+  vm.runInContext(fs.readFileSync('gas/QaCutover.js','utf8'),ctx);
+  ctx.inspectQaProduction=()=>calls.push('inspect');
+  return {ctx,p,tabs,calls};
+}
+test('有効な記録や不明なNotion作成があれば本番準備を拒否',()=>{
+  for(const p of [{ENABLED:'true'},{NOTION_CREATE_PENDING:'123'}]) {
+    const x=setup(p);assert.throws(()=>x.ctx.prepareQaProduction());assert.deepEqual(x.calls,[]);
+    assert.equal(x.p.GOOGLE_SPREADSHEET_ID,undefined);
+  }
+});
+test('準備は既存鍵とActions時計と同期IDを保持し検証先の巡回位置だけを解除',()=>{
+  const x=setup({ENABLED:'false',SLACK_READ_TOKEN:'dummy',ACTIONS_CLOCK_ENABLED:'true',
+    SCAN_STATE:'old',RECENT_STATE:'old',NOTION_DATA_SOURCE_ID:'old'});
+  x.ctx.prepareQaProduction();assert.equal(x.p.SLACK_READ_TOKEN,'dummy');
+  assert.equal(x.p.ACTIONS_CLOCK_ENABLED,'true');assert.equal(x.p.ENABLED,'false');
+  assert.equal(x.p.SCAN_STATE,undefined);assert.equal(x.p.NOTION_DATA_SOURCE_ID,undefined);
+  assert.equal(x.p.RECENT_THROUGH_TS,'123.45');
+  assert.deepEqual(x.tabs,['GAS_STAGE','GAS_STAGE_RECENT']);
+});
+test('準備前や保存先の不一致では開始しない',()=>{
+  const x=setup();assert.throws(()=>x.ctx.startQaProduction(),/QA_PREPARE_REQUIRED/);
+  x.p.QA_PRODUCTION_PREPARED='true';assert.throws(()=>x.ctx.startQaProduction(),/QA_TARGET_MISMATCH/);
+  assert.equal(x.p.ENABLED,undefined);assert.deepEqual(x.calls,[]);
+});
+test('登録失敗は記録を無効へ戻しActions時計は保持',()=>{
+  const x=setup({ACTIONS_CLOCK_ENABLED:'true'});Object.assign(x.p,x.ctx.QA_PRODUCTION,{QA_PRODUCTION_PREPARED:'true'});
+  x.ctx.installSalesQaTrigger=()=>{throw Error('FAILED');};
+  assert.throws(()=>x.ctx.startQaProduction(),/FAILED/);assert.equal(x.p.ENABLED,'false');
+  assert.equal(x.p.ACTIONS_CLOCK_ENABLED,'true');
+});
+test('確認済みの保存先で記録開始し時計を保持',()=>{
+  const x=setup({ACTIONS_CLOCK_ENABLED:'true'});Object.assign(x.p,x.ctx.QA_PRODUCTION,{QA_PRODUCTION_PREPARED:'true'});
+  x.ctx.startQaProduction();assert.equal(x.p.ENABLED,'true');assert.deepEqual(x.calls,['install']);
+  assert.equal(x.p.ACTIONS_CLOCK_ENABLED,'true');
+});
+
+test('再準備が途中失敗した場合は以前の準備完了フラグを解除',()=>{
+ const x=setup({QA_PRODUCTION_PREPARED:'true'});
+ x.ctx.inspectQaProduction=()=>{throw Error('HTTP_403');};
+ assert.throws(()=>x.ctx.prepareQaProduction(),/HTTP_403/);
+ assert.equal(x.p.QA_PRODUCTION_PREPARED,undefined);
+ assert.throws(()=>x.ctx.startQaProduction(),/QA_PREPARE_REQUIRED/);
+});
