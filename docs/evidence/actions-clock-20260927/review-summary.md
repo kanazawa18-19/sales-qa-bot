@@ -1,5 +1,9 @@
 # GAS Actions時計の検証（2026-09-27）
 
+## 今回の続き：本人設定後の単発試験
+
+GAS→Actions→NotebookLM実回答→本人DM1件の到着を確認。run自体は送信結果の本文一致判定でfailure。詳細と制約は[実試験記録](live-smoke.md)。再送なし、判定の小修正はPython34件成功。以下はPAT設定前の記録。
+
 ## 実機で確認した範囲
 
 - 準備用GASへ`ActionsClock.gs`を追加。保存後に再読込し、エディター全文をコピーしてローカル`gas/ActionsClock.js`と完全一致を確認。

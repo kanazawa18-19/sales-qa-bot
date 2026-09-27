@@ -13,13 +13,13 @@ smoke = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(smoke)
 
 class OwnerSmokeTests(unittest.TestCase):
-    def execute(self, request_id, post_error=False):
+    def execute(self, request_id, post_error=False, transform=lambda text: text, channel=None):
         client = Mock()
         client.auth_test.return_value = {'team_id': 'T1CSJ782K', 'user_id': 'U0B87Q9P99N'}
         def post(**kwargs):
             if post_error:
                 raise TimeoutError('secret')
-            return {'channel': kwargs['channel'], 'message': {'text': kwargs['text']}, 'ts': '1.2'}
+            return {'channel': channel or kwargs['channel'], 'message': {'text': transform(kwargs['text'])}, 'ts': '1.2'}
         client.chat_postMessage.side_effect = post
         assistant = Mock(_storage_path=None)
         assistant.answer.return_value = ('資料による回答', [])
@@ -52,3 +52,26 @@ class OwnerSmokeTests(unittest.TestCase):
         result, client, _ = self.execute('invalid')
         self.assertEqual(result, 1)
         client.chat_postMessage.assert_not_called()
+
+    def test_slack_transformed_text_is_accepted_and_hashed(self):
+        result, client, output = self.execute('11111111-1111-1111-1111-111111111111', transform=lambda text: text.replace('資料による回答', '資料による回答 :bulb:'))
+        self.assertEqual(result, 0)
+        sent = client.chat_postMessage.call_args.kwargs['text']
+        evidence = json.loads(output.split('DM_SENT ')[1])
+        expected = sent.replace('資料による回答', '資料による回答 :bulb:')
+        self.assertEqual(evidence['message_sha256'], hashlib.sha256(expected.encode()).hexdigest())
+        self.assertEqual(evidence['submitted_sha256'], hashlib.sha256(sent.encode()).hexdigest())
+        self.assertTrue(evidence['slack_text_changed'])
+        client.chat_postMessage.assert_called_once()
+
+    def test_wrong_destination_is_not_success_or_retried(self):
+        result, client, output = self.execute('', channel='OTHER')
+        self.assertEqual(result, 1)
+        self.assertNotIn('DM_SENT', output)
+        client.chat_postMessage.assert_called_once()
+
+    def test_missing_correlation_is_not_success(self):
+        result, client, output = self.execute('11111111-1111-1111-1111-111111111111', transform=lambda text: '異なる本文')
+        self.assertEqual(result, 1)
+        self.assertNotIn('DM_SENT', output)
+        client.chat_postMessage.assert_called_once()

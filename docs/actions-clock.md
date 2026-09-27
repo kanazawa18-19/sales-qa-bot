@@ -21,7 +21,7 @@ GAS単発試験 → bot.ymlの本人DM試験 → NotebookLM実回答 → 本人D
 1. 試験ブランチ`slack-http`に今回のbot.ymlとスクリプトをpushする。本番mainには反映しない。
 2. 準備用GASへActionsClock.jsを追加。`healthActionsClock`で停止・トリガー0を確認。
 3. 専用PATを本人が設定した後、`runActionsClockOwnerSmoke`を1回実行する。定期起動は不要。質問とDM宛先は既存スクリプトで固定。
-4. GASログのrequestId/要求時刻、Actionsのrun名・ID・開始時刻、`DM_SENT`の回答取得/投稿時刻・SHA256を記録。Slack別読取で照合ID・本文ハッシュ・件数1を照合する。回答本文は公開Gitへ保存しない。
+4. GASログのrequestId/要求時刻、Actionsのrun名・ID・開始時刻、`DM_SENT`の回答取得/投稿時刻・Slack受理本文SHA256を記録。送信前本文のハッシュは`submitted_sha256`へ別記し、Slackの絵文字・URL変換を区別する。Slack別読取で照合ID・本文ハッシュ・件数1を照合する。回答本文は公開Gitへ保存しない。
 5. 成功/失敗/結果不明にかかわらず`ACTIONS_CLOCK_SMOKE_REQUEST`は保持し、再実行を拒否する。401などの確定未受付後に再試験する場合も、状態を確認した担当者がこのプロパティだけを消す。タイムアウト時はActionsとDMを照合するまで消さない。
 
 単発試験は固定質問から始まり、実Slackユーザー発言の受信検証ではない。通常Bot・Sheets・Notionを起動しない。

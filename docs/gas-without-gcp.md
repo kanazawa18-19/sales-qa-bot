@@ -50,7 +50,7 @@ Slackのhistory/repliesは社内向けアプリと社外商用配布で制限が
 
 ## 次の実装・検証の完了条件
 
-2026-09-27追記：停止既定のActions時計と本人DM単発試験経路を実装。手順は[actions-clock.md](actions-clock.md)。時計は認証更新だけを起動し、常駐Botの復旧は既存自己再起動とGitHubの保険を維持する。GAS実機への保存・停止確認まで実施。専用PATは未設定のため、GASからの起動・実回答の通し試験は未実施。下記は元の検討時点の完了条件。
+2026-09-27追記：停止既定のActions時計と本人DM単発試験経路を実装。手順は[actions-clock.md](actions-clock.md)。時計は認証更新だけを起動し、常駐Botの復旧は既存自己再起動とGitHubの保険を維持する。GAS実機への保存・停止確認まで実施。本人の専用PAT設定後、GASからの起動→NotebookLM実回答→本人DM1件を確認。送信後の本文一致判定でActionsはfailureとなったため、到着確認と終了判定を区別する。詳細は[実試験記録](evidence/actions-clock-20260927/live-smoke.md)。下記は元の検討時点の完了条件。
 
 1. 既存GitHub Actionsを起動するGAS時計を、停止既定で準備。実行中の正常Botを毎周期再起動しない。認証更新のwriterは既存auth-refreshだけに維持し、Bot側5分時計との移行時重複を抑止する。
 2. GASからGitHubへの権限はActions起動に限定。既存Cloud用HttpClock.jsは転用不可。GASにPATを保存するなら新しい保存先になるため、既存承認の範囲を確認し、本人による設定が必要。

@@ -46,13 +46,19 @@ def main():
         stage = "slack_post_unknown_on_failure"
         result = client.chat_postMessage(channel=CHANNEL, text=message,
                                          unfurl_links=False, unfurl_media=False)
-        if result["channel"] != CHANNEL or result["message"]["text"] != message:
+        # Slackは絵文字やURLを変換するため、送信前本文との完全一致を成功条件にしない。
+        posted_text = result.get("message", {}).get("text")
+        if (result.get("channel") != CHANNEL or not re.fullmatch(r"[0-9]+\.[0-9]+", result.get("ts", ""))
+                or not isinstance(posted_text, str) or not posted_text.strip()
+                or (request_id and f"照合ID：{request_id}" not in posted_text)):
             raise ValueError()
         print("DM_SENT " + json.dumps({"channel": CHANNEL, "ts": result["ts"],
               "request_id": request_id, "started_at": started, "answered_at": answered,
               "posted_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-              "message_sha256": hashlib.sha256(message.encode()).hexdigest(),
-              "message_length": len(message)}, ensure_ascii=False))
+              "message_sha256": hashlib.sha256(posted_text.encode()).hexdigest(),
+              "submitted_sha256": hashlib.sha256(message.encode()).hexdigest(),
+              "slack_text_changed": posted_text != message,
+              "message_length": len(posted_text)}, ensure_ascii=False))
         return 0
     except Exception:
         print(f"TEST_FAILED stage={stage}（例外本文は認証情報保護のため非表示）")
