@@ -1,0 +1,4 @@
+モデル: Gemini 3.6 Thinking
+URL: https://gemini.google.com/app/dc28a24d60ca895c?hl=ja
+回答: 大規模言語モデルとして私はまだ学習中であり、そちらには対応できません。
+レビュー未実施。

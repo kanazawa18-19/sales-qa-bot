@@ -1,0 +1,96 @@
+モデル: Claude Opus 5.5 中
+URL: https://claude.ai/chat/43127c5a-961c-4194-b7c2-7c924d7f8e5e
+
+結論として、停止を既定にしていること、送信前に要求を永続化していること、秘密値をログに出さない方針は妥当です。一方で、本番切替の前に直すべき点が2件あります（B1・B2）。今回の本人DM単発試験そのものを止める問題ではありません。
+
+| 区分 | 番号 | 観点 | 要旨 |
+|---|---|---|---|
+| BLOCKER | B1 | 二重起動・権限 | main以外のrefでbot.ymlを起動すると、本番Botを取消し、試験ブランチのコードが本番トークンで常駐する |
+| BLOCKER | B2 | 再送 | 通信の一時失敗が1回あるだけで、GAS時計が手動解除まで恒久停止する |
+| WARN | W1 | 移行時の競合 | 待機中のauth-refreshがSNAPSHOT検査で誤って失敗し、本人DMが失敗・成功の対で届く |
+| WARN | W2 | 移行時の競合 | GASの有効化と旧Botの交代確認が手順頼みで、機械的な連動がない |
+| WARN | W3 | 再送 | 確定的な不受理（401/403/422）と結果不明が同じunknownに記録される |
+| WARN | W4 | 再送 | dispatchのinputsに真偽値をそのまま渡している |
+| WARN | W5 | 通知 | ヒステリシスがなく、状態が揺れるとメールが連発してMailAppの上限に達しうる |
+| WARN | W6 | 二重起動 | cron `*/35` とcancel-in-progressの組合せで、稼働中のBotが1時間に2回取消される |
+| INFO | I1〜I7 | 権限・運用・試験 | 下記参照 |
+
+---
+
+B1　main以外のrefでrun-botが動き、本番Botを取消す（bot.yml）
+
+run-botの実行条件は `!inputs.owner_dm_smoke && !inputs.owner_http_smoke` だけで、refを見ていません。そのため、slack-httpなどでスモーク入力なしにworkflow_dispatchすると（UIの誤操作や、Actions全体に書込権限を持つPATでの操作）、次の順に事態が進みます。
+
+1. concurrencyグループが `sales-qa-bot` になる。グループはリポジトリ全体で共有されるため、main上の本番Botが取消される。
+2. 試験ブランチのsrcが本番のSlack/NotebookLM/Sheets/Notionのsecretsで最大24分間常駐する。
+3. 最後のRestartステップがmainを起動するので表面上は復旧するが、その間は未検証コードが本番を処理している。
+
+スモーク入力の解釈に失敗した場合（W4）も同じ経路に入ります。対策としては、run-botに `github.ref == 'refs/heads/main'` を加え、concurrencyグループにもrefを含めてください。
+
+```yaml
+concurrency:
+  group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || github.ref == 'refs/heads/main' && 'sales-qa-bot' || format('sales-qa-nonmain-{0}', github.run_id) }}
+jobs:
+  run-bot:
+    if: ${{ github.ref == 'refs/heads/main' && !inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
+```
+
+B2　認証更新要求の「再送しない」が時計の可用性を損なう（ActionsClock.js tick）
+
+UrlFetchAppのタイムアウトなどで `CLOCK_TRANSPORT_UNKNOWN` になると、`ACTIONS_CLOCK_AUTH_REQUEST` がstate unknownのまま残ります。一致するrunは永久に現れないため、以後のtickは `!pending` を満たせず、手動で解除するまで一切dispatchしません。AUTH_CLOCK_OWNERがgasのときBot側の5分起動は止まっているので、認証更新は17分・47分のscheduleだけになります。GitHubのscheduleは遅延しやすく、30分以内に成功しているという条件を割り込みやすくなります。しかも要確認通知は1回だけです。
+
+本人DM試験では二重送信を避ける意味がありますが、auth-refreshはconcurrencyで直列化されるため、重複起動の害は小さいです（W1を除く）。無送信の方針は試験用に限り、時計側は自動回復させることを推奨します。具体的には、pendingが15分以上経っても履歴に同じ照合IDのrunがなければ、「未受付と判定」として記録してから再dispatchしてください。
+
+W1　待機中runのSNAPSHOT検査による誤った失敗（runtime_ops.py refresh）
+
+run Aの実行中に、scheduleやGAS、旧Botから起動されたrun Bが待機に入ったとします。Aがsecretを保存すると `updated_at > B.created_at` となり、Bは `QUEUED_SECRET_SNAPSHOT_IS_OLD` で失敗して本人へDMします。次の成功でも、直前が失敗なので成功DMが届きます。scheduleとの衝突や移行中の二重起動で、1日に数回起こりえます。
+
+secretsがキュー時点で確定するのか、ジョブ開始時点で確定するのかは要確認です。開始時点であれば、この検査は誤検知そのものです。いずれの場合も、この状況は「直前に別runが更新済み」なので、失敗ではなく通知なしの正常スキップ（exit 0）とするのが妥当です。
+
+W2　移行時の交代確認が手順だけに依存している
+
+旧Botは起動時のAUTH_CLOCK_OWNERを最大24分保持するため、GASを有効化すると二重に起動要求が出ます。今回のPATはVariablesを読めないので、GASはこの状態を検知できません。
+
+対策として、`ACTIONS_CLOCK_MIGRATION_ACK` をtrueではなく「変数を切り替えた時刻（ISO）」にしてください。tickでmain上の実行中bot.ymlの `run_started_at` がすべてその時刻より後であることを確かめ、満たすまでdispatchしない形にすれば機械的に担保できます。
+
+W3　確定的な不受理と結果不明を区別していない
+
+`actionsClockDispatch_` は例外時に記録をunknownのまま残します。401/403/422はGitHubが受け付けていないことが確定しているので、rejectedとして記録を分けてください。そうすれば手動解除時の判断材料になり、B2の自動回復にも使えます。
+
+W4　dispatch inputsの真偽値
+
+`inputs: {owner_dm_smoke: true}` をJSONの真偽値のまま送っています。APIが「string型ではない」として422を返す事例があったと記憶していますが、現行仕様で受け付けるかは確認できていません。ワークフロー側はtype booleanなので、`"true"` という文字列で送っても `inputs.owner_dm_smoke` は真として評価されます。安全側として文字列で送ることを推奨します。
+
+W5　通知のヒステリシス不足
+
+通知の判定タグは `ok-日付` と `failed` の2値なので、GitHubの一時的な5xxや、Bot再起動の合間に `botActive` が偽になるだけで失敗と回復のメールが交互に送られます。5分周期なら最大で日に数百通になり、MailAppの日次上限に達すると通知関数自体が例外になります。「失敗が連続N回で要確認」「回復後も一定時間は再通知しない」の2条件を入れてください。
+
+W6　`*/35` のフォールバックが稼働中のBotを取消す（bot.yml）
+
+`*/35` は35分間隔ではなく、毎時0分と35分に発火します。concurrencyのcancel-in-progressがtrueなので、発火のたびに稼働中のBotが取消され、回答途中の処理も切れます。既存の挙動かもしれませんが、二重起動の観点では「重複」ではなく「中断」として出ています。フォールバック専用のジョブを用意し、稼働中のrunがなければ何もしない形にすることを推奨します。
+
+---
+
+INFO
+
+I1　PATの権限範囲。Actions書込は、任意のref・任意のworkflowのdispatchに加え、runの取消・再実行・ログ削除も可能にします。B1と組み合わさると影響が大きいため、ドキュメントの注意書きにこの点を明記してください。Script Propertiesは編集者だけでなく、同じGASプロジェクト内の他のコードからも読めます。準備用GASに他の処理が同居している点も記載を推奨します。
+
+I2　`stopActionsClock` はロックを取りません。実行中のtickが停止後に1回dispatchしうるので、停止直後の確認は5分ほど待ってから行ってください。
+
+I3　ヘルス情報の保存と通知はロック解放後に行われます。現状は実害が小さいものの、単発試験と並行すると順序が前後しえます。
+
+I4　pendingの照合は、runが取消された場合も解除します。次のtickで再度要求するため、問題はありません。履歴100件は約7時間分なので、10分の照合には十分です。
+
+I5　AUTH_CLOCK_OWNERがgasのときも、Bot側の古さ警告はrunごと（24分ごと）に1回出ます。認証が古い状態が続くと、GASのメールとSlack DMの二系統で通知が重なります。
+
+I6　公開リポジトリに、DMチャンネルID・Slackのteam/user ID・NotebookLMのnotebook IDがハードコードされています。秘密値ではありませんが識別子です。public logに出るのは照合ID・ts・ハッシュのみで、この点は問題ありません。
+
+I7　テストで確認できていない経路。次の6点を追加してください。
+- pendingの照合による解除
+- pendingが10分を超えた場合の失敗判定
+- tick経路での通信不明
+- 422の扱い
+- `botActive` が偽の場合
+- 状態が揺れたときのメール件数
+
+UrlFetch（1日約3,200回）とトリガー実行時間は、個人アカウントの上限内に収まる見込みです。

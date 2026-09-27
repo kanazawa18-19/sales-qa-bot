@@ -1,10 +1,16 @@
 name: Sales QA Bot
 
+run-name: ${{ inputs.clock_request_id && format('GAS本人DM {0}', inputs.clock_request_id) || 'Sales QA Bot' }}
+
 on:
   schedule:
     - cron: '*/35 * * * *'  # 自己再起動が途切れた場合のフォールバック
   workflow_dispatch:
     inputs:
+      clock_request_id:
+        description: GAS単発試験の照合ID
+        type: string
+        default: ""
       owner_http_smoke:
         description: 本人DMでHTTP受信とNotebookLMの通し検証
         type: boolean
@@ -25,12 +31,12 @@ permissions:
   actions: write  # 自己再起動のために必要
 
 concurrency:
-  group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || 'sales-qa-bot' }}
+  group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || github.ref == 'refs/heads/main' && 'sales-qa-bot' || format('sales-qa-nonmain-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
   run-bot:
-    if: ${{ !inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
+    if: ${{ github.ref == 'refs/heads/main' && !inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -51,6 +57,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ github.token }}
+          AUTH_CLOCK_OWNER: ${{ vars.AUTH_CLOCK_OWNER || 'bot' }}
           SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
           QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
           QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
@@ -96,6 +103,7 @@ jobs:
       - name: NotebookLM実回答を本人DMへ送信
         run: python scripts/owner_dm_smoke.py
         env:
+          CLOCK_REQUEST_ID: ${{ inputs.clock_request_id }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
           NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0

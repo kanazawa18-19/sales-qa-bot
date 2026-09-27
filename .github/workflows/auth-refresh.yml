@@ -1,9 +1,16 @@
 name: Refresh NotebookLM Auth
 
+run-name: ${{ inputs.clock_request_id && format('GAS認証更新 {0}', inputs.clock_request_id) || 'Refresh NotebookLM Auth' }}
+
 on:
   schedule:
     - cron: '17,47 * * * *'  # Botからの5分起動が途切れた場合の保険
   workflow_dispatch:
+    inputs:
+      clock_request_id:
+        description: GAS時計の照合ID
+        type: string
+        default: ""
 
 permissions:
   contents: read
