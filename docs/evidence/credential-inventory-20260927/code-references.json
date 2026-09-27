@@ -1,0 +1,2942 @@
+{
+  "scanned_roots": 26,
+  "matches": [
+    {
+      "repo": "HLS-project",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 1,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/db-seed.ts",
+          "line": 22,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/db-seed.ts",
+          "line": 23,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/db-seed.ts",
+          "line": 24,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/db-seed.ts",
+          "line": 172,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/db-seed.ts",
+          "line": 227,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/refresh-empty-knowledge.ts",
+          "line": 28,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/refresh-empty-knowledge.ts",
+          "line": 29,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/refresh-empty-knowledge.ts",
+          "line": 30,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/refresh-empty-knowledge.ts",
+          "line": 74,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "agent-config",
+      "refs": [
+        {
+          "file": "_backup-claude-md-sub-482-20260830.md",
+          "line": 53,
+          "keys": [
+            "notion-token",
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "claude/CLAUDE.md",
+          "line": 99,
+          "keys": [
+            "notion-token",
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "codex/AGENTS.md",
+          "line": 114,
+          "keys": [
+            "notion-token",
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "memory/api-tokens-keychain.md",
+          "line": 13,
+          "keys": [
+            "notion-token"
+          ]
+        },
+        {
+          "file": "memory/api-tokens-keychain.md",
+          "line": 14,
+          "keys": [
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "memory/feedback_credential_transfer_via_clipboard.md",
+          "line": 73,
+          "keys": [
+            "notion-token"
+          ]
+        },
+        {
+          "file": "memory/feedback_rotate_token_check_who_shares_it.md",
+          "line": 13,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/feedback_service_account_has_no_drive_storage.md",
+          "line": 28,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/notion-ingest-task.md",
+          "line": 13,
+          "keys": [
+            "notion-token"
+          ]
+        },
+        {
+          "file": "memory/project_crm_sfa_integration.md",
+          "line": 166,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "memory/project_crm_sfa_unresolved_assignee.md",
+          "line": 65,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "memory/project_director_to_hls.md",
+          "line": 25,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "memory/project_director_to_hls.md",
+          "line": 27,
+          "keys": [
+            "NOTION_API_KEY",
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_hotel_lab_onboarding.md",
+          "line": 43,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_lead_researcher.md",
+          "line": 58,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "memory/project_morning_research.md",
+          "line": 31,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_notta_notion_sync.md",
+          "line": 25,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_ota_efficiency_kb.md",
+          "line": 25,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "memory/project_relation_sync_implementation.md",
+          "line": 161,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_repitte_hotel_onboarding.md",
+          "line": 26,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "memory/project_x_post_ideas.md",
+          "line": 43,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "shared/10-always.md",
+          "line": 72,
+          "keys": [
+            "notion-token",
+            "slack-user-token"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "chatwork-slack-bridge",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 26,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 29,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 85,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 86,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 122,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 157,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 243,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "lib/config.ts",
+          "line": 107,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "lib/config.ts",
+          "line": 108,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "scripts/resolve-user-map.mjs",
+          "line": 9,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/resolve-user-map.mjs",
+          "line": 15,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/resolve-user-map.mjs",
+          "line": 18,
+          "keys": [
+            "SLACK_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/resolve-user-map.mjs",
+          "line": 19,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/resolve-user-map.mjs",
+          "line": 37,
+          "keys": [
+            "SLACK_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "cnctor-onboarding",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/onboarding.yml",
+          "line": 55,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/probe-sheets-metadata.yml",
+          "line": 86,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/probe-sheets-metadata.yml",
+          "line": 88,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 983,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "core.py",
+          "line": 32,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "core.py",
+          "line": 112,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "onboarding.py",
+          "line": 232,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "tools/hold_drill.py",
+          "line": 27,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "crm-sfa-integration",
+      "refs": [
+        {
+          "file": ".github/workflows/hub-inventory.yml",
+          "line": 30,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".github/workflows/hub-inventory.yml",
+          "line": 31,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".github/workflows/hub-inventory.yml",
+          "line": 38,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/hub-inventory.yml",
+          "line": 44,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 64,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 2,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 4,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 8,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 124,
+          "keys": [
+            "VERIFICATION_TOKEN"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 126,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 130,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 135,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "config/.env.example",
+          "line": 138,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/audit_log_note.md",
+          "line": 128,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/dashboard_note.md",
+          "line": 39,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/dashboard_note.md",
+          "line": 82,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/hub_inventory_and_gaps.md",
+          "line": 12,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/id_mapping_persistence_note.md",
+          "line": 72,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/id_mapping_persistence_note.md",
+          "line": 73,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/id_mapping_persistence_note.md",
+          "line": 112,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/migration_pipeline_note.md",
+          "line": 147,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/operations_dm_delivery.md",
+          "line": 30,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/operations_dm_delivery.md",
+          "line": 104,
+          "keys": [
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "docs/operations_dm_delivery.md",
+          "line": 105,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/project_mirror_activation_note.md",
+          "line": 46,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/relation_sync_activation_note.md",
+          "line": 70,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/relation_sync_activation_note.md",
+          "line": 442,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/relation_sync_activation_note.md",
+          "line": 478,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/relation_sync_activation_note.md",
+          "line": 530,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/relation_sync_activation_note.md",
+          "line": 532,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/reply_timing_note.md",
+          "line": 114,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/revenue_target_sheet_note.md",
+          "line": 32,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/revenue_target_sheet_note.md",
+          "line": 46,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/revenue_target_sheet_note.md",
+          "line": 61,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "docs/web_engagement_tool_integration_note.md",
+          "line": 52,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "docs/webhook_health_operations.md",
+          "line": 51,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/webhook-health/monitor.js",
+          "line": 11,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/webhook-health/monitor.js",
+          "line": 65,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/audit_id_mapping_collisions.py",
+          "line": 21,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_client_name_index.py",
+          "line": 25,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_client_name_index.py",
+          "line": 70,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_prioritized_sync_gaps.py",
+          "line": 39,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_project_assignees.py",
+          "line": 57,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_project_mirror.py",
+          "line": 19,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_project_mirror.py",
+          "line": 65,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_spreadsheet_all.py",
+          "line": 92,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_spreadsheet_all.py",
+          "line": 98,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_zoho_missed_records.py",
+          "line": 35,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_zoho_missed_records.py",
+          "line": 83,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/backfill_zoho_missed_records.py",
+          "line": 197,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inventory_kintone_missed_updates.py",
+          "line": 231,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inventory_kintone_missed_updates.py",
+          "line": 259,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inventory_kintone_missed_updates.py",
+          "line": 313,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inventory_unmapped_hub_records.py",
+          "line": 74,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inventory_unmapped_hub_records.py",
+          "line": 141,
+          "keys": [
+            "NOTION_API_KEY",
+            "notion-token"
+          ]
+        },
+        {
+          "file": "scripts/inventory_unmapped_hub_records.py",
+          "line": 144,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 38,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 44,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 141,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 142,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 237,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 257,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 298,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 308,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 314,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 319,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 321,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/migrate_data.py",
+          "line": 425,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_kintone_missed_updates.py",
+          "line": 101,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_kintone_missed_updates.py",
+          "line": 108,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_zoho_missed_updates.py",
+          "line": 434,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_zoho_missed_updates.py",
+          "line": 452,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_zoho_missed_updates.py",
+          "line": 522,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_zoho_missed_updates.py",
+          "line": 530,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "scripts/replay_zoho_missed_updates.py",
+          "line": 651,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/report_hub_inventory.py",
+          "line": 41,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/run_local_sync_monitor.py",
+          "line": 86,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/run_local_sync_monitor.py",
+          "line": 121,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/run_local_sync_monitor.py",
+          "line": 126,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/setup_notion_databases.py",
+          "line": 14,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_notion_databases.py",
+          "line": 193,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_notion_databases.py",
+          "line": 196,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_notion_databases.py",
+          "line": 197,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_revenue_target_settings_db.py",
+          "line": 10,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_revenue_target_settings_db.py",
+          "line": 123,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_revenue_target_settings_db.py",
+          "line": 126,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/setup_revenue_target_settings_db.py",
+          "line": 127,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/routes/cron.py",
+          "line": 277,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/routes/cron.py",
+          "line": 330,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/routes/webhooks.py",
+          "line": 239,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/routes/webhooks.py",
+          "line": 272,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/routes/webhooks.py",
+          "line": 297,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/user_directory.py",
+          "line": 3,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/user_directory.py",
+          "line": 44,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/api/user_directory.py",
+          "line": 47,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/calendar_sync/notion_user_email.py",
+          "line": 39,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/calendar_sync/notion_user_email.py",
+          "line": 41,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/calendar_sync/notion_user_email.py",
+          "line": 44,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/calendar_sync/web_engagement_tool_client.py",
+          "line": 33,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/diagnostics/integrations.py",
+          "line": 116,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/diagnostics/integrations.py",
+          "line": 118,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/diagnostics/integrations.py",
+          "line": 398,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/diagnostics/integrations.py",
+          "line": 400,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/diagnostics/webhook_health.py",
+          "line": 112,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/document_generation/approval_notify.py",
+          "line": 79,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/document_generation/approval_notify.py",
+          "line": 81,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/document_generation/template_registry.py",
+          "line": 69,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/document_generation/template_registry.py",
+          "line": 72,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/email_reminders/db.py",
+          "line": 6,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/email_reminders/reminder_check.py",
+          "line": 21,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/email_reminders/slack_notify.py",
+          "line": 8,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/email_reminders/slack_notify.py",
+          "line": 37,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/email_reminders/slack_notify.py",
+          "line": 41,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/email_reminders/slack_notify.py",
+          "line": 43,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/facility_list/application/build_list.py",
+          "line": 104,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/facility_list/infrastructure/crm_matcher.py",
+          "line": 171,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/incident_detection/db.py",
+          "line": 6,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/incident_detection/notify.py",
+          "line": 9,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/incident_detection/notify.py",
+          "line": 15,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/incident_detection/notify.py",
+          "line": 73,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/incident_detection/notify.py",
+          "line": 78,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/incident_detection/notify.py",
+          "line": 80,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/meeting_sync/slack_approval.py",
+          "line": 5,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/meeting_sync/slack_approval.py",
+          "line": 122,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/meeting_sync/slack_approval.py",
+          "line": 197,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/meeting_sync/slack_approval.py",
+          "line": 202,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 13,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 15,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 23,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 132,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 141,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/manager_dm.py",
+          "line": 143,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notifications/operations_dm.py",
+          "line": 62,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 27,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 29,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 31,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 134,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 135,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 163,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 164,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/reports/revenue_target_settings.py",
+          "line": 168,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/_notion_keys.py",
+          "line": 30,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 40,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 58,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 155,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 174,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 177,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_client.py",
+          "line": 309,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_display_resolver.py",
+          "line": 15,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/clients/notion_display_resolver.py",
+          "line": 46,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/dispatcher.py",
+          "line": 37,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/dispatcher.py",
+          "line": 524,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/dispatcher.py",
+          "line": 543,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/dispatcher.py",
+          "line": 546,
+          "keys": [
+            "NOTION_LAST_EDITED_TIME_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 11,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 183,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 184,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 185,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 208,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 212,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 215,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/notion_id_mapping.py",
+          "line": 222,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 636,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 659,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 802,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 816,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 850,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 858,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 887,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 895,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 1162,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/production_wiring.py",
+          "line": 1189,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/sync_engine/slack_notifier.py",
+          "line": 197,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/sync_engine/webhook_handlers/gmail_push_webhook.py",
+          "line": 112,
+          "keys": [
+            "VERIFICATION_TOKEN"
+          ]
+        },
+        {
+          "file": "src/sync_engine/webhook_handlers/slack_interaction_webhook.py",
+          "line": 9,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "src/sync_engine/webhook_handlers/slack_interaction_webhook.py",
+          "line": 48,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "src/sync_engine/webhook_handlers/slack_interaction_webhook.py",
+          "line": 51,
+          "keys": [
+            "SLACK_SIGNING_SECRET"
+          ]
+        },
+        {
+          "file": "src/sync_engine/webhook_handlers/web_engagement_webhook.py",
+          "line": 110,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "director-to-HLS",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 4,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".github/workflows/calendar-ingest.yml",
+          "line": 32,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack-ingest.yml",
+          "line": 42,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack-ingest.yml",
+          "line": 44,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack-ingest.yml",
+          "line": 76,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack-ingest.yml",
+          "line": 80,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack-ingest.yml",
+          "line": 88,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/calendar-ingest.ts",
+          "line": 71,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 67,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 68,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 70,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 71,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 75,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 157,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/slack-ingest.ts",
+          "line": 161,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "hotel-lab-onboarding",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/onboarding.yml",
+          "line": 30,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/onboarding.yml",
+          "line": 36,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 39,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "onboarding.py",
+          "line": 12,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "kstep",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 13,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 33,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "lib/app/deps.ts",
+          "line": 54,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/vercel-env.sh",
+          "line": 26,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_USER_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "lead-researcher",
+      "refs": [
+        {
+          "file": ".github/workflows/slack_bot.yml",
+          "line": 29,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack_bot.yml",
+          "line": 30,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/slack_bot.yml",
+          "line": 32,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 11,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 12,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 17,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 24,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 31,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 32,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 57,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 246,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 251,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "research_leads.py",
+          "line": 363,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "morning-research",
+      "refs": [
+        {
+          "file": ".github/workflows/lead-bot.yml",
+          "line": 34,
+          "keys": [
+            "SLACK_APP_TOKEN",
+            "SLACK_LEAD_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/lead-bot.yml",
+          "line": 76,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_LEAD_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/lead-bot.yml",
+          "line": 78,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".github/workflows/morning-research.yml",
+          "line": 99,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 647,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_LEAD_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 648,
+          "keys": [
+            "SLACK_LEAD_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 651,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 691,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 44,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 45,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 49,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 94,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 98,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 100,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 344,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 345,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 399,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 513,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 521,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 970,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/inbound/lead_bot.py",
+          "line": 1011,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack_client.py",
+          "line": 35,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/slack_client.py",
+          "line": 91,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 645,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 649,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 650,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 657,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 792,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 794,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 889,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/test_inbound_lead.py",
+          "line": 893,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "notes-sync",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_USER_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 4,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 97,
+          "keys": [
+            "SLACK_USER_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 118,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "notion_common.py",
+          "line": 8,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "slack_sync.py",
+          "line": 52,
+          "keys": [
+            "SLACK_USER_TOKEN"
+          ]
+        },
+        {
+          "file": "slack_sync.py",
+          "line": 215,
+          "keys": [
+            "SLACK_USER_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "notion-contact-audit-gas",
+      "refs": [
+        {
+          "file": "README.md",
+          "line": 24,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "dist/Code.gs",
+          "line": 264,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "src/Engine.js",
+          "line": 34,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "notion-zoho-sync",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 11,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/sync.yml",
+          "line": 24,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/sync.yml",
+          "line": 29,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/SETUP.md",
+          "line": 48,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/SETUP.md",
+          "line": 97,
+          "keys": [
+            "NOTION_TOKEN",
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notion_client_wrapper.py",
+          "line": 27,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "src/slack_notify.py",
+          "line": 19,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "repitte-hotel-notifier",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 1,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/monitor.yml",
+          "line": 42,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/probe-flow.yml",
+          "line": 26,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "monitor.py",
+          "line": 8,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/probe_flow.py",
+          "line": 24,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "repitte-hotel-onboarding",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/onboarding.yml",
+          "line": 30,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/onboarding.yml",
+          "line": 36,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 39,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "onboarding.py",
+          "line": 12,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "sales-qa-bot-watchdog",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 3,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 12,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/auth-refresh.yml",
+          "line": 38,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/backfill.yml",
+          "line": 25,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/backfill.yml",
+          "line": 31,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/bot.yml",
+          "line": 48,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/bot.yml",
+          "line": 50,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/bot.yml",
+          "line": 57,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/bot.yml",
+          "line": 79,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/bot.yml",
+          "line": 96,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/gas-monitor.yml",
+          "line": 38,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 8,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 18,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "SETUP.md",
+          "line": 34,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/gas-migration.md",
+          "line": 53,
+          "keys": [
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/gas-migration.md",
+          "line": 54,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/gas-migration.md",
+          "line": 63,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/operations.md",
+          "line": 25,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/operations.md",
+          "line": 26,
+          "keys": [
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/operations.md",
+          "line": 27,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/operations.md",
+          "line": 30,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/DuplicateViews.js",
+          "line": 35,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 7,
+          "keys": [
+            "NOTION_TOKEN",
+            "SLACK_BOT_TOKEN",
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 59,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 74,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 126,
+          "keys": [
+            "SLACK_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 312,
+          "keys": [
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "gas/Main.js",
+          "line": 617,
+          "keys": [
+            "SLACK_BOT_TOKEN",
+            "SLACK_READ_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/owner_dm_smoke.py",
+          "line": 23,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "scripts/runtime_ops.py",
+          "line": 36,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/backfill.py",
+          "line": 64,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/bot.py",
+          "line": 19,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/bot.py",
+          "line": 30,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/bot.py",
+          "line": 191,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/bot.py",
+          "line": 229,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "src/notion_client_wrapper.py",
+          "line": 10,
+          "keys": [
+            "NOTION_TOKEN"
+          ]
+        },
+        {
+          "file": "src/poll.py",
+          "line": 231,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "slack-schedule-bot",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 2,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 3,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/run-bot.yml",
+          "line": 48,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/run-bot.yml",
+          "line": 49,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "app.py",
+          "line": 14,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "app.py",
+          "line": 697,
+          "keys": [
+            "SLACK_APP_TOKEN"
+          ]
+        },
+        {
+          "file": "web.py",
+          "line": 7,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "web-engagement-tool",
+      "refs": [
+        {
+          "file": ".env.example",
+          "line": 11,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 102,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": ".env.example",
+          "line": 121,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "README.md",
+          "line": 36,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/USER_GUIDE.md",
+          "line": 520,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/booking_recovery_monitor_operations.md",
+          "line": 31,
+          "keys": [
+            "SLACK_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/cron_failure_alerts.md",
+          "line": 19,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "docs/cron_failure_alerts.md",
+          "line": 103,
+          "keys": [
+            "slack-user-token"
+          ]
+        },
+        {
+          "file": "src/app/api/monitor/booking-recovery/route.ts",
+          "line": 31,
+          "keys": [
+            "SLACK_TOKEN"
+          ]
+        },
+        {
+          "file": "src/lib/notionPushClient.ts",
+          "line": 46,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/lib/notionPushClient.ts",
+          "line": 47,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/lib/notionSync.ts",
+          "line": 38,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/lib/notionSync.ts",
+          "line": 39,
+          "keys": [
+            "NOTION_API_KEY"
+          ]
+        },
+        {
+          "file": "src/lib/slack.ts",
+          "line": 22,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/lib/slack.ts",
+          "line": 23,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/lib/slack.ts",
+          "line": 76,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "src/lib/slack.ts",
+          "line": 83,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "x-analytics-transfer",
+      "refs": [
+        {
+          "file": ".github/workflows/daily.yml",
+          "line": 48,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "praise.py",
+          "line": 65,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "praise.py",
+          "line": 67,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "x-post-ideas",
+      "refs": [
+        {
+          "file": ".github/workflows/x-post-ideas.yml",
+          "line": 61,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "main.py",
+          "line": 33,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "x-reply-bot",
+      "refs": [
+        {
+          "file": ".github/workflows/collect.yml",
+          "line": 44,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": ".github/workflows/execute.yml",
+          "line": 37,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "collect_and_notify.py",
+          "line": 379,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        },
+        {
+          "file": "execute.py",
+          "line": 76,
+          "keys": [
+            "SLACK_BOT_TOKEN"
+          ]
+        }
+      ]
+    }
+  ]
+}
