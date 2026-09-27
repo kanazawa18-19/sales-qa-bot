@@ -1,6 +1,6 @@
 # GAS版の導入と切替
 
-> 2026-09-27仕様変更：回答はNotebookLMへ戻す。現行の導入・切替手順は [NotebookLM構成](notebooklm-restoration.md) を正本とする。以下のClaude回答・資料移行・AI試験の説明は旧試験の記録であり、現行手順として実行しない。GASは記録のみ、Pythonの回答・NotebookLM同期・認証更新は継続する。
+> 2026-09-27仕様変更：回答はNotebookLMへ戻す。現行の導入・切替手順は [NotebookLM構成](notebooklm-restoration.md) を正本とする。QA記録の本番切替は [QA切替](qa-gas-cutover.md)、認証・復旧時計は [Actions時計](actions-clock.md) を参照。以下のClaude回答・資料移行・AI試験の説明は旧試験の記録であり、現行手順として実行しない。GASは記録のみ、Pythonの回答・NotebookLM同期・認証更新は継続する。
 
 GAS版は追加実装。既存Python・GitHub Actionsは変更していない。[移行準備プロジェクト](https://script.google.com/home/projects/1fsUWf8DstrkWgPj9u0UAa0819MOZtHGaUugaHkcCWTMT4CNQCLnXqm7Q/edit)は停止中（ENABLED=false、移行ACK=false、トリガーなし）。本人承認後にAnthropicキー設定・Google初回承認を完了。GASのdry-runと、架空データによる実AI生成・Sheets/Notion保存・再同期・本人宛メール到達まで成功した。本人DMでGASからの架空質問投稿・AIスレッド返信・重複防止も確認した。ユーザーからbotへの質問入力は無効のままで、自動巡回全体は未検証。本番切替は未実施。詳細は[実接続試験](evidence/gas-migration-20260927/live-smoke.md)。ローカル36テストも成功（外部APIはスタブ）。
 
