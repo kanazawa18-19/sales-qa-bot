@@ -144,7 +144,8 @@ def supervise(duration=24 * 60, interval=5 * 60):
                 return 1
             if time.monotonic() >= next_refresh:
                 try:
-                    dispatch_refresh()
+                    if os.environ.get("AUTH_CLOCK_OWNER", "bot") != "gas":
+                        dispatch_refresh()
                     recent = previous_refresh_runs()
                     last_success = next((r for r in recent if r["conclusion"] == "success"), None)
                     if time.monotonic() - launched >= 600 and (not last_success or time.time() - dt.datetime.fromisoformat(

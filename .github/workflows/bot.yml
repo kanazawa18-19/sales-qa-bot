@@ -48,6 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
           QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
+          AUTH_CLOCK_OWNER: ${{ vars.AUTH_CLOCK_OWNER || 'bot' }}
           QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}

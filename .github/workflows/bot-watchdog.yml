@@ -1,9 +1,15 @@
 name: Sales QA Bot 停止確認
+run-name: ${{ inputs.clock_request_id && format('GAS停止確認 {0}', inputs.clock_request_id) || 'Sales QA Bot 停止確認' }}
 
 on:
   schedule:
-    - cron: '17,47 * * * *'
+    - cron: '17,47 * * * *'  # GASへの切替確認後に4時間へ緩める
   workflow_dispatch:
+    inputs:
+      clock_request_id:
+        description: GAS時計の照合ID
+        type: string
+        default: ""
 
 permissions:
   contents: read

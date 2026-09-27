@@ -25,6 +25,14 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(ops.refresh(), 1)
             notify.assert_not_called()
 
+    def test_gas_clock_disables_only_dispatch(self):
+        child = Mock()
+        child.poll.return_value = None
+        with patch.dict(ops.os.environ, {"AUTH_CLOCK_OWNER": "gas"}), patch.object(ops.subprocess, "Popen", return_value=child), patch.object(ops.time, "monotonic", side_effect=[0, 0, 0, 0, 0, 2]), patch.object(ops.time, "sleep"), patch.object(ops, "dispatch_refresh") as dispatch, patch.object(ops, "previous_refresh_runs", return_value=[]) as health:
+            self.assertEqual(ops.supervise(duration=1), 0)
+            dispatch.assert_not_called()
+            health.assert_called_once()
+
     def test_rotation_stops_child(self):
         child = Mock()
         child.poll.return_value = None
