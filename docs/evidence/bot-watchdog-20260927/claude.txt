@@ -1,0 +1,76 @@
+Claudeが返答しました: 結論として、BLOCKERはありません。二重起動については、run-botを走らせるmain上のrunがすべて sales-qa-bot groupに入り、cancel-in-progress: false で稼働中runを取り消さない構成になっています。このため、自己再起動・push・復旧要求が重なっても、同時に稼…
+通知条件と再開手順の最小修正案を検討中。
+
+通知条件と再開手順の最小修正案を検討中。
+
+結論として、BLOCKERはありません。二重起動については、run-botを走らせるmain上のrunがすべて sales-qa-bot groupに入り、cancel-in-progress: false で稼働中runを取り消さない構成になっています。このため、自己再起動・push・復旧要求が重なっても、同時に稼働するBotは1件に限られます。本来の目的である「scheduleが正常Botを中断する問題」はこの変更で解消されます。ただし、停止復旧と運用面でWARNが3件あります。
+
+ID	区分	概要
+W1	WARN	起動直後に失敗すると、即時の自己再起動が無限に続く
+W2	WARN	意図的にBotを止める手順がなく、watchdogが最大約30分で再起動してしまう
+W3	WARN	公開リポジトリのscheduleは60日間活動がないと自動で無効化され、唯一の復旧経路が消える
+I1	INFO	状態確認の順序によるTOCTOU。共通groupがあるため無害
+I2	INFO	docの「置換する場合がある」という表現が公式仕様とずれている
+I3	INFO	旧runから新runへの交代時の無応答時間と、push反映の遅延
+I4	INFO	反映直後に旧schedule由来のrunが出るリスク
+I5	INFO	GASがフラグなしでdispatchすると通常Botが起動する
+I6	INFO	Restartのcurlの結果不明と、Secretの埋め込み方
+I7	INFO	テストの不足と、資料から確認できない前提
+
+W1 起動直後の失敗による即時再起動ループ
+
+根拠: Restartの条件 !cancelled() は、Install dependenciesが失敗して「Run bot」がskippedになった場合でも真になります。この場合、直ちにdispatchが実行され、次のrunも同じ理由で失敗する、という流れが1〜2分間隔で続きます。直列なので二重起動にはなりませんが、ループは止まりません。常にrunが存在するためwatchdogは介入できません。また、Restart自体は成功するので「再起動失敗を本人へ通知」も発火しません。PyPIの障害、トークンの失効、supervise直後の異常終了などで起こります。これは今回の変更以前からある問題ですが、自己再起動の範囲に含まれます。
+
+最小修正: 自己再起動を正常終了時だけに限定します。それ以外の失敗は、watchdogの時計による間隔(約30分)で復旧させます。
+
+
+yaml
+      - name: Run bot
+        id: bot
+        ...
+      - name: Restart workflow
+        id: restart
+        if: ${{ !cancelled() && steps.bot.outcome == 'success' }}
+      - name: 再起動失敗を本人へ通知
+        if: ${{ failure() && steps.restart.outcome != 'success' }}
+
+前提として、superviseが24分の正常終了時にexit 0を返す必要があります。資料にはruntime_ops.pyがないため、確認が必要です。トレードオフとして、子プロセスのterminateが固まって27分のstep上限に達した場合も、復旧はwatchdog待ちになります。通知文言は「再起動失敗」のままでも運用上は問題ありません。
+
+W2 停止手段がない
+
+根拠: 実行中のrunを手動でcancelするとRestartはskipされますが、次の17分・47分の確認で「未完了runなし」と判定され、復旧要求が出されます。誤動作時の緊急停止が自動で打ち消されてしまいます。
+
+最小修正: docに停止手順を追記します。コードの変更は不要です。
+
+ActionsでSales QA Bot 停止確認(bot-watchdog.yml)をDisable workflowにする
+bot.ymlのpending runがあればcancelする
+実行中runをcancelする
+再開時はwatchdogをEnableに戻し、手動dispatchするか次の時計を待つ
+
+W3 scheduleの自動無効化
+
+根拠: 公開リポジトリでは、60日間リポジトリ活動がないとscheduleが自動で無効化されます。Botの自己dispatchはリポジトリ活動として数えられません。安定稼働してコミットが止まると、watchdogが静かに止まり、自己再起動が一度途切れた時点でBotは復旧しなくなります。事前のメール警告は、cronを最後に編集した人に届く想定です。
+
+最小修正: docに、定期的にwatchdogの最終実行日時を確認することを追記します。GAS優先の方針に沿った代替策として、GASの時間トリガーから bot-watchdog.yml をworkflow_dispatchする方法があります。bot.ymlを直接起動せず、判断はwatchdogに残せます。追加GCPは不要ですが、GitHubトークンをGASのスクリプトプロパティに保管する必要があるため、今回は任意とします。
+
+INFO
+
+I1: 走査が in_progress → queued → pending … の順なので、確認中にpendingからin_progressへ遷移したrunを見落とす可能性があります。その場合、余分なdispatchが1件発生します。ただし共通groupで待機1件に置換されるため、系列の増殖や二重起動にはなりません。気になる場合は、配列を ['requested', 'waiting', 'pending', 'queued', 'in_progress'] のように遷移方向へ並べ替えると、見落としの窓が縮みます。修正は必須ではありません。
+
+I2: 公式仕様では、cancel-in-progress: false のときに同じgroupへ新しい要求が来ると、既存のpendingは常に取り消されて置換されます。docの「置換する場合がある」は「置換する」に直すのが正確です。
+
+I3: 次のrunは、旧runのpost処理(checkout後処理、setup-pythonのpipキャッシュ保存)が完了してから開始します。このため、以前の取消による交代より無応答時間が延びる可能性があります。また、pushしたコードは稼働中runの終了まで反映されず、最大で約25分遅れます。どちらも許容範囲と考えますが、反映後にGitHub上の時刻で交代間隔を実測することを推奨します。
+
+I4: 反映直前にschedule eventが発行されていた場合、それが遅れて旧定義(cancel-in-progress: true)のrunとして作られると、稼働中Botを中断します。これは今回修正しようとしている事象そのものです。遅延したrunがどの定義を使うかは未確認です。docの手順2に「毎時0分・35分の前後数分を避けてpushし、反映後最初の0分・35分を過ぎても新しいrunが出ないことを確認する」を加えるのが安全です。
+
+I5: clock_request_id だけを指定し、smokeフラグを付けずにdispatchすると、concurrencyは sales-qa-bot になり、run-botが実行されます。直列なので二重起動にはなりませんが、「GASは通常Botを起動しない」という前提が崩れます。GAS側で必ずsmokeフラグを付けていることを確認してください。
+
+I6: Restartのcurlが25秒でタイムアウトしても、POST自体は成功している可能性があります。その場合、次のrunは存在するのに失敗通知が送られます(余分な通知が出るだけです)。また、${{ secrets.GITHUB_TOKEN }} をrunスクリプトに直接展開するより、env: GH_TOKEN: ${{ github.token }} を経由して参照するほうが望ましいです。今回は必須ではありません。
+
+I7: docには「workflow設定を検証」とありますが、該当するテストが資料に見当たりません。bot.ymlにscheduleがないこと、cancel-in-progress: false であることを確認する簡単なテストの追加を推奨します。また、次の前提は資料からは確認できないため、反映前にGitHub上で確認が必要です。
+
+concurrency待機中のrunがAPI上でstatus pending として返ること
+リポジトリの既定ブランチがmainであること
+superviseの終了コード
+
+以上を踏まえると、必要最小の修正はW1のworkflow条件の2行と、W2・W3のdoc追記です。本番反映は、これらを反映したうえで本人の明示指示を待つ形で問題ありません。

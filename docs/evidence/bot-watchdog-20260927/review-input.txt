@@ -1,0 +1,325 @@
+目的: 正常な営業QA Botをscheduleが中断する問題を修正。日本語でBLOCKER/WARN/INFO、根拠と必要最小修正を報告してください。焦点: 自己再起動と復旧要求の競合、二重起動、停止復旧、旧runとの交代。通常Bot起動・取消し・本番反映は今回行わない。GAS優先、追加GCPなし。既存superviseは24分後に子プロセスterminate/waitして終了し、その後workflowのRestartからmainにdispatch。step27分/job35分上限。以下は公開リポジトリのコードと今回の変更。Secretは参照名のみで値なし。
+
+===== .github/workflows/bot.yml =====
+name: Sales QA Bot
+
+run-name: ${{ inputs.clock_request_id && format('GAS本人DM {0}', inputs.clock_request_id) || 'Sales QA Bot' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      clock_request_id:
+        description: GAS単発試験の照合ID
+        type: string
+        default: ""
+      owner_http_smoke:
+        description: 本人DMでHTTP受信とNotebookLMの通し検証
+        type: boolean
+        default: false
+      owner_dm_smoke:
+        description: 本人DMでNotebookLMの実回答を1回だけ確認
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/runtime_ops.py'
+      - '.github/workflows/bot.yml'
+
+permissions:
+  contents: read
+  actions: write  # 自己再起動のために必要
+
+concurrency:
+  group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || github.ref == 'refs/heads/main' && 'sales-qa-bot' || format('sales-qa-nonmain-{0}', github.run_id) }}
+  # 自己再起動・復旧・pushが重なっても稼働中Botは止めない。
+  cancel-in-progress: false
+
+jobs:
+  run-bot:
+    if: ${{ github.ref == 'refs/heads/main' && !inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot
+        timeout-minutes: 27
+        run: python scripts/runtime_ops.py supervise
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          AUTH_CLOCK_OWNER: ${{ vars.AUTH_CLOCK_OWNER || 'bot' }}
+          SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
+          QA_CHANNEL_ID: ${{ secrets.QA_CHANNEL_ID }}
+          QA_CAPTURE_ENABLED: ${{ vars.QA_CAPTURE_ENABLED || 'true' }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SERVICE_MATERIALS_TEXT: ${{ secrets.SERVICE_MATERIALS_TEXT }}
+          NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+          AI_CHANNEL_ID: ${{ secrets.AI_CHANNEL_ID }}
+
+      - name: Restart workflow
+        id: restart
+        if: ${{ !cancelled() }}
+        run: |
+          curl --fail --silent --show-error --max-time 25 -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/bot.yml/dispatches" \
+            -d '{"ref":"main"}'
+
+      - name: 再起動失敗を本人へ通知
+        if: ${{ failure() && steps.restart.outcome == 'failure' }}
+        run: python scripts/runtime_ops.py restart-failed
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  owner-dm-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_dm_smoke && !inputs.owner_http_smoke }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: NotebookLM実回答を本人DMへ送信
+        run: python scripts/owner_dm_smoke.py
+        env:
+          CLOCK_REQUEST_ID: ${{ inputs.clock_request_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+          NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+
+  owner-http-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_http_smoke }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-http.txt
+      - name: 署名付きHTTP受信から本人DMへの返信を確認
+        run: python scripts/owner_http_smoke.py
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+          NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+
+===== .github/workflows/bot-watchdog.yml =====
+name: Sales QA Bot 停止確認
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: sales-qa-bot-watchdog
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 未完了Botがない場合だけ復旧を要求
+        uses: actions/github-script@v7
+        with:
+          retries: 0
+          script: |
+            const recover = require('./scripts/bot_watchdog.cjs');
+            await recover({github, context, core});
+
+===== scripts/bot_watchdog.cjs =====
+// 未完了runがある限り触らない。競合による二重稼働をbot.ymlの共通実行枠で防ぐ。
+const ACTIVE_STATUSES = ['in_progress', 'queued', 'pending', 'waiting', 'requested'];
+
+module.exports = async function recover({github, context, core}) {
+  if (context.ref !== 'refs/heads/main') throw new Error('MAIN_ONLY');
+  const target = {...context.repo, workflow_id: 'bot.yml'};
+  for (const status of ACTIVE_STATUSES) {
+    const {data} = await github.rest.actions.listWorkflowRuns({
+      ...target, branch: 'main', status, per_page: 1,
+    });
+    // 不明な応答を「停止」と解釈しない。本文や認証値をログへ出さない。
+    if (!Number.isInteger(data?.total_count) || data.total_count < 0 ||
+        !Array.isArray(data.workflow_runs) ||
+        (data.total_count === 0) !== (data.workflow_runs.length === 0)) {
+      throw new Error('BOT_STATE_UNKNOWN');
+    }
+    if (data.total_count > 0) {
+      core.info(`BOT_RECOVERY_SKIPPED status=${status}`);
+      return 'skipped';
+    }
+  }
+  // 結果不明のPOSTをこの実行内で再送しない。次の定期確認で状態を読み直す。
+  await github.rest.actions.createWorkflowDispatch({...target, ref: 'main'});
+  core.info('BOT_RECOVERY_REQUESTED');
+  return 'requested';
+};
+
+===== tests/bot-watchdog.test.cjs =====
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const recover = require('../scripts/bot_watchdog.cjs');
+
+function fixture(active, fail) {
+  const calls = [];
+  const actions = {
+    async listWorkflowRuns(args) {
+      calls.push(['GET', args]);
+      if (fail) throw new Error('通信失敗');
+      return {data: {total_count: args.status === active ? 200 : 0,
+        workflow_runs: args.status === active ? [{id: 1}] : []}};
+    },
+    async createWorkflowDispatch(args) { calls.push(['POST', args]); },
+  };
+  return {calls, actions, input: {github: {rest: {actions}},
+    context: {ref: 'refs/heads/main', repo: {owner: 'example', repo: 'test'}},
+    core: {info() {}}}};
+}
+
+for (const state of ['in_progress', 'queued', 'pending', 'waiting', 'requested']) {
+  test(`${state}のrunがあれば復旧要求しない`, async () => {
+    const f = fixture(state);
+    assert.equal(await recover(f.input), 'skipped');
+    assert.equal(f.calls.some(([method]) => method === 'POST'), false);
+  });
+}
+
+test('全状態に未完了runがなければmainへ1回だけ起動要求する', async () => {
+  const f = fixture();
+  assert.equal(await recover(f.input), 'requested');
+  assert.equal(f.calls.filter(([method]) => method === 'GET').length, 5);
+  const posts = f.calls.filter(([method]) => method === 'POST');
+  assert.equal(posts.length, 1);
+  assert.deepEqual(posts[0][1], {owner: 'example', repo: 'test', workflow_id: 'bot.yml', ref: 'main'});
+  for (const [, args] of f.calls.slice(0, 5)) assert.equal(args.branch, 'main');
+});
+
+test('API失敗時には起動しない', async () => {
+  const f = fixture(null, true);
+  await assert.rejects(recover(f.input));
+  assert.equal(f.calls.length, 1);
+});
+
+test('不明な応答を停止と見なさない', async () => {
+  for (const data of [{}, {total_count: -1, workflow_runs: []},
+    {total_count: 0, workflow_runs: [{}]}, {total_count: 1, workflow_runs: []}]) {
+    const f = fixture();
+    f.actions.listWorkflowRuns = async () => ({data});
+    await assert.rejects(recover(f.input), /BOT_STATE_UNKNOWN/);
+    assert.equal(f.calls.length, 0);
+  }
+});
+
+test('非mainからは読取も起動もしない', async () => {
+  const f = fixture();
+  f.input.context.ref = 'refs/heads/slack-http';
+  await assert.rejects(recover(f.input), /MAIN_ONLY/);
+  assert.equal(f.calls.length, 0);
+});
+
+test('起動POSTの結果不明を再送しない', async () => {
+  const f = fixture();
+  let posts = 0;
+  f.actions.createWorkflowDispatch = async () => { posts++; throw new Error('応答消失'); };
+  await assert.rejects(recover(f.input));
+  assert.equal(posts, 1);
+});
+
+===== docs/bot-watchdog.md =====
+# Botを中断しない停止確認と復旧
+
+本番未反映。追加GCP・GAS設定・認証更新担当の変更は不要。
+
+```text
+Bot → 24分で子プロセス終了 → 自己再起動要求 → 次Bot
+                                      ↑
+GitHub毎時17・47分 → 未完了runあり ──→ 何もしない
+                  → 未完了runなし ──→ 復旧要求
+同時に要求された場合 → Botの共通実行枠で順番待ち
+```
+
+## 変更と限界
+
+- 旧bot.ymlの`*/35`は毎時0分・35分。実行中を取り消す設定と組み合わさり、正常Botが中断され得た。
+- bot.ymlから直接scheduleを除去。共通group `sales-qa-bot`を維持し、`cancel-in-progress: false`へ変更。push・手動・自己再起動・復旧要求の全てが同じ枠で直列になる。本人試験の別枠・非main制限は維持する。
+- bot-watchdog.ymlを毎時17・47分に実行。Botとは異なるgroupを使うため、停止確認自身はBotの実行枠を占めない。
+- bot.yml/mainの`in_progress / queued / pending / waiting / requested`をAPIで確認し、一つでもあれば要求しない。各状態を絞り込んで件数を見るため、直近履歴100件の外にある長い待機も対象になる。main上の本人試験も保守的に未完了と扱い、その間は復旧が遅れる。
+- 読取失敗・不正応答はworkflow失敗にして起動しない。起動POSTの結果不明も同じ実行内で再送しない。次の時計で再確認する。通知はGitHub Actionsの失敗通知設定に依存し、新しいSlack通知は追加しない。通知の受信設定・実配送は未検証。
+- 状態確認とPOSTは不可分ではない。確認直後の自己再起動・pushとの競合では余分な要求が発生し得るが、Bot側の共通groupが実行中1件に制限する。既定では待機は1件で、新しい要求が古い待機を置換する場合がある。稼働中は取り消さず、要求数に比例して自己再起動の系列が増殖することもない。待機の実行順は保証しない。
+- 24分の寿命、27分の実行ステップ上限、35分のjob上限を維持。停止・取消し・job上限で自己再起動まで進めなくても次の停止確認が復旧候補となる。queued/waitingが止まり続ける場合は自動取消しせず、人が[Bot実行一覧](https://github.com/kanazawa18-19/sales-qa-bot/actions/workflows/bot.yml)を確認する。待機継続はwatchdogが成功扱いのため自動通知されない。
+- GitHub scheduleの遅延・欠落があるため「30分以内に必ず復旧」とは言えない。runの存在はNotebookLMの回答成功の保証ではない。GASの時計は従来どおり通常Botを起動・取消ししない。
+
+## 本番反映は本人の明示指示後
+
+1. この変更だけを本番の内容に重ねる。slack-http全体を無条件にmainへ統合しない。対象はbot.ymlのschedule削除と取消設定変更、新watchdog workflowとスクリプト。GAS時計・QA記録切替は別作業。
+2. 反映直前に旧schedule由来のqueued/pending runが残っていないか確認する。旧定義を保持するrunや手動再実行は旧取消設定を使う可能性があるため、残る場合は切替を進めず評価する。
+3. 旧runの実行枠と同じgroupを維持する。反映pushは新設定で待機し、旧runの自然終了を待つ。旧runの取消し・再実行は行わない。
+4. GitHubの読み取りで旧run→新SHAのrunへの自然交代、通常Botの同時実行1件、watchdogのスキップ、自己再起動後の後続runを確認する。停止復旧のために本番Botを止めない。
+
+## 検証の範囲
+
+ローカルではAPIを置換した判断テストとworkflow設定を検証する。本番Botを起動・取消しする試験や、追加DM送信は行わない。GitHub上で新設定による復旧・競合を実行した証明とは区別する。
+
+## 公式仕様
+
+- [同時実行制御と待機runの置換](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+- [状態を絞り込んだworkflow実行一覧](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow)
+- [scheduleの遅延と既定ブランチ](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
+===== 今回の既存ファイル差分 =====
+diff --git a/.github/workflows/bot.yml b/.github/workflows/bot.yml
+index c642886..8c9fee7 100644
+--- a/.github/workflows/bot.yml
++++ b/.github/workflows/bot.yml
+@@ -3,8 +3,6 @@ name: Sales QA Bot
+ run-name: ${{ inputs.clock_request_id && format('GAS本人DM {0}', inputs.clock_request_id) || 'Sales QA Bot' }}
+ 
+ on:
+-  schedule:
+-    - cron: '*/35 * * * *'  # 自己再起動が途切れた場合のフォールバック
+   workflow_dispatch:
+     inputs:
+       clock_request_id:
+@@ -32,7 +30,8 @@ permissions:
+ 
+ concurrency:
+   group: ${{ inputs.owner_http_smoke && 'sales-qa-http-smoke' || inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || github.ref == 'refs/heads/main' && 'sales-qa-bot' || format('sales-qa-nonmain-{0}', github.run_id) }}
+-  cancel-in-progress: true
++  # 自己再起動・復旧・pushが重なっても稼働中Botは止めない。
++  cancel-in-progress: false
+ 
+ jobs:
+   run-bot:

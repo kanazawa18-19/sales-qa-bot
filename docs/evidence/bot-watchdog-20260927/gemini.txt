@@ -1,0 +1,89 @@
+Gemini の回答
+
+正常な営業QA Botのschedule中断修正に向けたコードおよび設計のレビュー結果です。焦点である「自己再起動と復旧要求の競合」「二重起動」「停止復旧」「旧runとの交代」について、BLOCKER / WARN / INFOに分類して報告します。
+
+BLOCKER（致命的障害・そのままでは動かない問題）
+1. bot-watchdog.yml でのモジュールパス解決エラー (MODULE_NOT_FOUND)
+
+根拠: actions/github-script@v7 のインラインスクリプト内で require('./scripts/bot_watchdog.cjs') を実行すると、github-script アクション自体の内部ディレクトリ（__dirname）起点でパス解決が試みられます。ワークスペース直下のファイルを見つけられず、MODULE_NOT_FOUND で監視ワークフローが確実に失敗します。
+
+必要最小修正: .github/workflows/bot-watchdog.yml
+
+YAML
+      script: |
+        const path = require('path');
+        const recover = require(path.resolve(process.env.GITHUB_WORKSPACE, 'scripts/bot_watchdog.cjs'));
+        await recover({github, context, core});
+
+2. bot_watchdog.cjs の 5 回直列 API 呼び出しによる競合とレスポンス不整合
+
+根拠: ACTIVE_STATUSES（5つの状態）ごとに listWorkflowRuns をループで 5 回呼び出しています。呼び出し中の数秒間に Bot が終了（in_progress → completed）すると、アクティブな Bot が存在するにもかかわらず「未完了なし」と誤判定して不要な復旧 dispatch を送信するレースコンディションが発生します。
+
+必要最小修正: scripts/bot_watchdog.cjs で status フィルタを外し、1 回のリクエストで直近の run 一覧を取得して JS 側で判定します。
+
+JavaScript
+// scripts/bot_watchdog.cjs
+const ACTIVE_STATUSES = new Set(['in_progress', 'queued', 'pending', 'waiting', 'requested']);
+
+module.exports = async function recover({github, context, core}) {
+  if (context.ref !== 'refs/heads/main') throw new Error('MAIN_ONLY');
+  const target = {...context.repo, workflow_id: 'bot.yml'};
+
+  // statusフィルタを外し1回のAPIで直近一覧を取得
+  const {data} = await github.rest.actions.listWorkflowRuns({
+    ...target, branch: 'main', per_page: 20,
+  });
+
+  if (!Number.isInteger(data?.total_count) || data.total_count < 0 ||
+      !Array.isArray(data.workflow_runs)) {
+    throw new Error('BOT_STATE_UNKNOWN');
+  }
+
+  const hasActive = data.workflow_runs.some(run => ACTIVE_STATUSES.has(run.status));
+  if (hasActive) {
+    core.info('BOT_RECOVERY_SKIPPED');
+    return 'skipped';
+  }
+
+  await github.rest.actions.createWorkflowDispatch({...target, ref: 'main'});
+  core.info('BOT_RECOVERY_REQUESTED');
+  return 'requested';
+};
+
+WARN（警告・運用リスクや潜在的競合）
+1. 24分終了直後と Watchdog (17/47分) の極小レースコンディション
+
+根拠: supervise が 24 分で正常終了した直後、Restart workflow ステップが API を呼ぶ前に Watchdog の時計（17分/47分）が重なると、Watchdog 側が「未完了 run なし」と判断して復旧 dispatch を送ります。直後に Restart からも dispatch が送られるため、ミリ秒単位で 2 件の dispatch が発生します。
+
+評価と対策: bot.yml 側の concurrency (sales-qa-bot, cancel-in-progress: false) により、2 件目の dispatch は queued になり、GitHub Actions の仕様上 queued は常に最新 1 件へ自動置換されるため二重稼働（並列起動）には至りません。動作に支障はありません。
+
+2. bot.yml の Restart ステップにおけるトークン記法
+
+根拠: -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" となっています。動作上は互換性がありますが、GitHub Actions の標準記法は ${{ github.token }} であり、認証ヘッダーも Bearer が推奨されます。
+
+必要最小修正: .github/workflows/bot.yml
+
+YAML
+      run: |
+        curl --fail --silent --show-error --max-time 25 -X POST \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/bot.yml/dispatches" \
+          -d '{"ref":"main"}'
+
+INFO（仕様確認・意図通りの設計）
+1. 二重起動の防止原理（二重起動・停止復旧）
+
+bot.yml の concurrency group を sales-qa-bot (cancel-in-progress: false) で一元化しているため、自己再起動・Watchdog 復旧要求・手動実行・push が同時に重なっても、実行中 (in_progress) の 1 件以外はすべて queued 待機枠（最大1件）に入ります。
+
+稼働中の Bot が途中で kill されることなく、二重稼働を防いだ状態で直列に引き継がれます。
+
+2. 旧 run から新 run への交代手順（旧runとの交代）
+
+本番反映時、旧コードで稼働している Bot (in_progress) は新定義の cancel-in-progress: false のおかげで中断されずに最後まで走ります。
+
+旧 run が 24 分後に終了した際、旧 run の Restart ステップが API を叩くことで自然に新定義の bot.yml へ交代します。ドキュメントに記載された「旧 run の自然終了を待つ」運用手順と一致しています。
+
+3. 単体テストの追従
+
+scripts/bot_watchdog.cjs の API リクエスト構造変更に伴い、tests/bot-watchdog.test.cjs のモック構造（listWorkflowRuns が 1 回のみ呼ばれる検証）を更新してください。
