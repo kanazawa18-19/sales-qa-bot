@@ -63,3 +63,40 @@ function startQaProduction() {
     console.log('QA_RECORDING_STARTED');
   } finally {lock.releaseLock();}
 }
+// 実際に完了した同期の保存先を読戻す。質問・回答本文はログへ出さない。
+function verifyQaProduction() {
+  var c = config_(), b = book_(c), qaRows = rows_(sheet_(b, c.p.GOOGLE_SHEET_NAME));
+  var complete = rows_(sheet_(b, 'GAS_SYNC_STATE')).filter(function(r) {return r[2] === 'COMPLETE';});
+  var verified = complete.slice(0, 3).map(function(r) {
+    var ts = r[0].slice(r[0].indexOf(':')+1);
+    var matching = qaRows.filter(function(q) {return q[8] === ts || (q[3] || '').indexOf('/p'+ts.replace('.','')) >= 0;});
+    if (matching.length !== 1) throw new Error('QA_READBACK_DUPLICATE');
+    var pages = notion_(c, 'data_sources/' + sourceId_(c) + '/query', {
+      filter: {property:'タイムスタンプ',rich_text:{equals:ts}}
+    }).results;
+    if (!pages || !pages.some(function(p) {return p.id === r[3];})) throw new Error('QA_NOTION_READBACK_DUPLICATE');
+    if (pages.some(function(p) {return p.properties && p.properties.URL && p.properties.URL.url && p.properties.URL.url !== matching[0][3];})) throw new Error('QA_NOTION_READBACK_MISMATCH');
+    var page = notion_(c, 'pages/'+r[3], undefined, 'get'), q = matching[0];
+    [['サービス',0],['回答者',5],['回答テキスト',9]].forEach(function(pair) {
+      var actual = (page.properties[pair[0]].rich_text || []).map(function(x) {return x.plain_text || (x.text || {}).content || '';}).join('');
+      if (actual !== rich_(q[pair[1]])[0].text.content) throw new Error('QA_NOTION_READBACK_MISMATCH');
+    });
+    if (page.properties.URL.url !== q[3]) throw new Error('QA_NOTION_READBACK_MISMATCH');
+    return {ts:ts, pageId:r[3], sheetRows:matching.length, notionPages:pages.length};
+  });
+  var out = {completeCount:complete.length, verified:verified};
+  console.log(JSON.stringify(out)); return out;
+}
+function pauseQaProduction() {
+  PropertiesService.getScriptProperties().setProperty('ENABLED', 'false');
+  console.log('QA_RECORDING_PAUSED');
+}
+function inspectQaExistingDuplicates() {
+  var c = config_(), ts = '1789607490.454059';
+  var pages = notion_(c, 'data_sources/'+sourceId_(c)+'/query', {
+    filter:{property:'タイムスタンプ',rich_text:{equals:ts}}
+  }).results;
+  var out = {ts:ts, returnedCount:pages.length, pages:pages.slice(0,5).map(function(p) {return {id:p.id,createdAt:p.created_time,
+    editedAt:p.last_edited_time,url:(p.properties.URL || {}).url};})};
+  console.log(JSON.stringify(out)); return out;
+}

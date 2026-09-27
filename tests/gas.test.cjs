@@ -851,3 +851,13 @@ test('Slack内部失敗・timeout・未知拒否はPOSTINGを保ち再POSTしな
         assert.equal(posts,1,code);
     }
 });
+test('既存Notion重複はSlack URL一致のページへ固定し曖昧な重複を拒否',()=>{
+ const ctx=runtime(), url='https://example/p123';
+ assert.equal(ctx.selectNotionQaPage_([],url),null);
+ assert.equal(ctx.selectNotionQaPage_([{id:'single'}],url),'single');
+ const pages=[{id:'empty',properties:{URL:{url:null}}},{id:'canonical',properties:{URL:{url}}},{id:'legacy',properties:{URL:{url}}}];
+ assert.equal(ctx.selectNotionQaPage_(pages,url),'canonical');
+ assert.throws(()=>ctx.selectNotionQaPage_([{id:'1'},{id:'2'}],url),/NOTION_DUPLICATE/);
+ pages.push({id:'conflict',properties:{URL:{url:'https://different'}}});
+ assert.throws(()=>ctx.selectNotionQaPage_(pages,url),/NOTION_DUPLICATE/);
+});

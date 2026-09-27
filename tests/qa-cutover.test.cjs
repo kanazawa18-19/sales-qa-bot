@@ -77,3 +77,15 @@ test('本番ヘッダーとNotion列型が一致しなければ読取確認を�
  assert.throws(()=>x.ctx.inspectQaProduction(),/QA_NOTION_SCHEMA_MISMATCH/);
  assert.deepEqual(x.p,{});
 });
+test('実記録の読戻しは両保存先1件・回答一致を要求する',()=>{
+ const x=setup({GOOGLE_SHEET_NAME:'シート1'}), url='https://example/p12345';
+ let qa=[['サービス','','',url,'','回答者','','','123.45','回答']];
+ const page={id:'page',properties:{'サービス':{rich_text:[{plain_text:'サービス'}]},'回答者':{rich_text:[{plain_text:'回答者'}]},'回答テキスト':{rich_text:[{plain_text:'回答'}]},URL:{url}}};
+ x.ctx.rows_=s=>s.name==='GAS_SYNC_STATE'?[['CQ:123.45','200','COMPLETE','page']]:qa;
+ x.ctx.sourceId_=()=> 'source';x.ctx.rich_=v=>[{text:{content:String(v)}}];
+ x.ctx.notion_=(c,path)=>path.endsWith('/query')?{results:[page]}:page;
+ assert.equal(x.ctx.verifyQaProduction().completeCount,1);
+ page.properties['回答テキスト'].rich_text[0].plain_text='不一致';
+ assert.throws(()=>x.ctx.verifyQaProduction(),/QA_NOTION_READBACK_MISMATCH/);
+ qa.push(qa[0]);assert.throws(()=>x.ctx.verifyQaProduction(),/QA_READBACK_DUPLICATE/);
+});

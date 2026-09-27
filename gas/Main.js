@@ -137,6 +137,18 @@ function rich_(s) {
             }
         }];
 }
+// 既存の重複は削除せず、同じSlack URLのページを更新先に固定する。
+function selectNotionQaPage_(pages, url) {
+    if (!Array.isArray(pages)) throw new Error('NOTION_QUERY_UNCERTAIN');
+    if (pages.some(function(p) {return p.properties && p.properties.URL && p.properties.URL.url && p.properties.URL.url !== url;}))
+        throw new Error('NOTION_DUPLICATE');
+    if (pages.length > 1) {
+        var matching = pages.find(function(p) {return p.properties && p.properties.URL && p.properties.URL.url === url;});
+        if (!matching) throw new Error('NOTION_DUPLICATE');
+        return matching.id;
+    }
+    return pages.length ? pages[0].id : null;
+}
 function sync_(c, book, channel, messages, snapshot) {
     if (!snapshot || !isFinite(Number(snapshot)))
         throw new Error('SNAPSHOT_REQUIRED');
@@ -183,10 +195,8 @@ function sync_(c, book, channel, messages, snapshot) {
                 }
             }
         });
-        if (result.results.length > 1)
-            throw new Error('NOTION_DUPLICATE');
-        if (result.results.length) {
-            knownPageId = result.results[0].id;
+        knownPageId = selectNotionQaPage_(result.results, data[3]);
+        if (knownPageId) {
             rawCell_(freshness, stateIndex + 1, 4, knownPageId);
             SpreadsheetApp.flush();
         }
