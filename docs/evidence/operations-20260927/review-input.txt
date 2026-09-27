@@ -1,0 +1,365 @@
+GAS外部監視とBot準備失敗の再起動抑制をレビューしてください。BLOCKER/WARN/INFO、根拠と改善を日本語で。既存NotebookLM回答維持、正常Bot停止禁止。GASは5分tickから監視タブへ状態を保存、GitHubは毎時読取。実機未検証。全周24時間の閾値は暫定。依存準備失敗の即時自己再起動を止め、watchdogは最近30分のfailureがあれば復旧を延期。監視自身の依存準備失敗はActions失敗通知に依存。
+diff --git a/.github/workflows/bot.yml b/.github/workflows/bot.yml
+index 152d694..2fa531c 100644
+--- a/.github/workflows/bot.yml
++++ b/.github/workflows/bot.yml
+@@ -41,6 +41,7 @@ jobs:
+         run: pip install -r requirements.txt
+ 
+       - name: Run bot
++        id: bot
+         timeout-minutes: 27
+         run: python scripts/runtime_ops.py supervise
+         env:
+@@ -63,7 +64,7 @@ jobs:
+ 
+       - name: Restart workflow
+         id: restart
+-        if: ${{ !cancelled() }}
++        if: ${{ !cancelled() && steps.bot.outcome == 'success' }}
+         run: |
+           curl --fail --silent --show-error --max-time 25 -X POST \
+             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+diff --git a/gas/ActionsClock.js b/gas/ActionsClock.js
+index 1d3ce82..299150d 100644
+--- a/gas/ActionsClock.js
++++ b/gas/ActionsClock.js
+@@ -133,6 +133,7 @@ function tickActionsClock() {
+   health.pendingRecoveryRequest = JSON.parse(props.getProperty('ACTIONS_CLOCK_RECOVERY_REQUEST') || 'null');
+   health.elapsedMs = Date.now() - Date.parse(health.checkedAt);
+   props.setProperty('ACTIONS_CLOCK_HEALTH', JSON.stringify(health));
++  if (typeof publishQaHeartbeatSafely_ === 'function') publishQaHeartbeatSafely_();
+   actionsClockNotice_(health);
+   console.log(JSON.stringify(health));
+   return health;
+diff --git a/scripts/bot_watchdog.cjs b/scripts/bot_watchdog.cjs
+index 6c0e7f5..fbbe5c4 100644
+--- a/scripts/bot_watchdog.cjs
++++ b/scripts/bot_watchdog.cjs
+@@ -19,6 +19,23 @@ module.exports = async function recover({github, context, core}) {
+       return 'skipped';
+     }
+   }
++  // 準備失敗・異常終了の直後は、GASから要求されても30分待つ。
++  const {data: history} = await github.rest.actions.listWorkflowRuns({
++    ...target, branch: 'main', status: 'failure', per_page: 1,
++  });
++  if (!Number.isInteger(history?.total_count) || !Array.isArray(history.workflow_runs) ||
++      (history.total_count === 0) !== (history.workflow_runs.length === 0)) {
++    throw new Error('BOT_HISTORY_UNKNOWN');
++  }
++  const last = history.workflow_runs[0];
++  if (last && last.conclusion !== 'success') {
++    const ended = Date.parse(last.updated_at);
++    if (!Number.isFinite(ended)) throw new Error('BOT_HISTORY_UNKNOWN');
++    if (Date.now() - ended < 30 * 60 * 1000) {
++      core.info('BOT_RECOVERY_COOLDOWN');
++      return 'cooldown';
++    }
++  }
+   // 結果不明のPOSTをこの実行内で再送しない。次の定期確認で状態を読み直す。
+   await github.rest.actions.createWorkflowDispatch({...target, ref: 'main'});
+   core.info('BOT_RECOVERY_REQUESTED');
+diff --git a/scripts/runtime_ops.py b/scripts/runtime_ops.py
+index 0a42272..487f2cb 100644
+--- a/scripts/runtime_ops.py
++++ b/scripts/runtime_ops.py
+@@ -139,7 +139,7 @@ def supervise(duration=24 * 60, interval=5 * 60):
+                     prior = [r for r in prior if str(r["id"]) != os.environ.get("GITHUB_RUN_ID")
+                              and r["head_branch"] == "main" and r["status"] == "completed"]
+                     if not prior or prior[0]["conclusion"] != "failure":
+-                        notify("Sales QA Bot：Botが予定より早く停止しました。再起動を試みます。" + run_link())
++                        notify("Sales QA Bot：Botが予定より早く停止しました。30分以上の待機後、外部の停止確認から復旧を試みます。" + run_link())
+                 except Exception:
+                     print("OWNER_NOTIFICATION_FAILED", flush=True)
+                 time.sleep(max(0, 300 - (time.monotonic() - launched)))
+diff --git a/tests/bot-watchdog.test.cjs b/tests/bot-watchdog.test.cjs
+index e8701ce..6fa327b 100644
+--- a/tests/bot-watchdog.test.cjs
++++ b/tests/bot-watchdog.test.cjs
+@@ -31,7 +31,7 @@ for (const state of ['in_progress', 'queued', 'pending', 'waiting', 'requested']
+ test('全状態に未完了runがなければmainへ1回だけ起動要求する', async () => {
+   const f = fixture();
+   assert.equal(await recover(f.input), 'requested');
+-  assert.equal(f.calls.filter(([method]) => method === 'GET').length, 5);
++  assert.equal(f.calls.filter(([method]) => method === 'GET').length, 6);
+   const posts = f.calls.filter(([method]) => method === 'POST');
+   assert.equal(posts.length, 1);
+   assert.deepEqual(posts[0][1], {owner: 'example', repo: 'test', workflow_id: 'bot.yml', ref: 'main'});
+@@ -91,10 +91,26 @@ test('Botと停止確認の実行枠・取消設定・旧時計削除を保持
+   assert.doesNotMatch(bot, /^  schedule:/m);
+   assert.match(bot, /^  cancel-in-progress: false$/m);
+   assert.match(bot, /group: \$\{\{ inputs\.owner_dm_smoke && 'sales-qa-owner-dm-smoke' \|\| 'sales-qa-bot' \}\}/);
+-  assert.match(bot, /if: \$\{\{ !cancelled\(\) \}\}/);
++  assert.match(bot, /if: \$\{\{ !cancelled\(\) && steps\.bot\.outcome == 'success' \}\}/);
+   assert.match(bot, /"ref":"main"/);
+   assert.match(watchdog, /^  group: sales-qa-bot-watchdog$/m);
+   assert.match(watchdog, /^  cancel-in-progress: false$/m);
+   assert.match(watchdog, /if: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/);
+   assert.match(watchdog, /retries: 0/);
+ });
++
++ test('準備失敗から30分は復旧を要求しない', async () => {
++  const f = fixture(); const list = f.actions.listWorkflowRuns;
++  f.actions.listWorkflowRuns = async args => args.status === 'failure'
++    ? {data:{total_count:1,workflow_runs:[{conclusion:'failure',updated_at:new Date().toISOString()}]}}
++    : list(args);
++  assert.equal(await recover(f.input),'cooldown');
++  assert.equal(f.calls.some(([method])=>method==='POST'),false);
++});
++ test('失敗から30分後には復旧を要求する', async () => {
++  const f = fixture(); const list = f.actions.listWorkflowRuns;
++  f.actions.listWorkflowRuns = async args => args.status === 'failure'
++    ? {data:{total_count:1,workflow_runs:[{conclusion:'failure',updated_at:new Date(Date.now()-1800001).toISOString()}]}}
++    : list(args);
++  assert.equal(await recover(f.input),'requested');
++});
+
+FILE gas/Operations.js
+/* 外部監視用の時刻だけを専用タブへ保存する。秘密値・QA本文は含めない。 */
+function publishQaHeartbeat_() {
+  var p = PropertiesService.getScriptProperties();
+  var b = SpreadsheetApp.openById(p.getProperty('GOOGLE_SPREADSHEET_ID'));
+  var s = b.getSheetByName('GAS_HEALTH') || b.insertSheet('GAS_HEALTH');
+  var triggers = ScriptApp.getProjectTriggers().map(function(t) {return t.getHandlerFunction();});
+  var state = {
+    schema: 1, observedAt: new Date().toISOString(),
+    enabled: p.getProperty('ENABLED') === 'true',
+    clockEnabled: p.getProperty('ACTIONS_CLOCK_ENABLED') === 'true',
+    pollTriggers: triggers.filter(function(n) {return n === 'pollSalesQa';}).length,
+    clockTriggers: triggers.filter(function(n) {return n === 'tickActionsClock';}).length,
+    lastRun: p.getProperty('LAST_RUN_SUCCESS'),
+    lastRecentCycle: p.getProperty('LAST_RECENT_CYCLE_SUCCESS'),
+    lastDeepCycle: p.getProperty('LAST_CYCLE_SUCCESS'),
+    health: JSON.parse(p.getProperty('HEALTH') || '{}'),
+    clock: JSON.parse(p.getProperty('ACTIONS_CLOCK_HEALTH') || '{}'),
+    daily: JSON.parse(p.getProperty('DAILY_RUNTIME') || '{}'),
+    dailyLimitSeconds: Number(p.getProperty('DAILY_RUNTIME_LIMIT_SECONDS') || 14400)
+  };
+  // API要求IDやスレッドIDを外部監視の保存先へコピーしない。
+  state.health = {status:state.health.status, code:state.health.code,
+    started:state.health.started, durationMs:state.health.durationMs};
+  state.clock = {ok:state.clock.ok, checkedAt:state.clock.checkedAt,
+    lastAuthSuccess:state.clock.lastAuthSuccess, elapsedMs:state.clock.elapsedMs};
+  s.getRange(1, 1, 1, 2).setNumberFormat('@').setValues([['heartbeat', JSON.stringify(state)]]);
+  SpreadsheetApp.flush();
+  if (s.getRange(1, 2).getDisplayValue() !== JSON.stringify(state)) throw Error('HEARTBEAT_VERIFY_FAILED');
+  return state;
+}
+function publishQaHeartbeatSafely_() {
+  try {publishQaHeartbeat_();}
+  catch (e) {console.log('HEARTBEAT_PUBLISH_FAILED');}
+}
+// 配置時の読戻し。記録・時計の開始や停止はしない。
+function inspectQaHeartbeat() {
+  console.log(JSON.stringify(publishQaHeartbeat_()));
+}
+
+FILE scripts/gas_monitor.py
+"""GAS外側から稼働記録を読み、判定と実測資料を保存する。"""
+import argparse
+import datetime as dt
+import json
+import os
+from pathlib import Path
+
+
+def age(value, now):
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace('Z', '+00:00'))
+        seconds = (now - parsed).total_seconds()
+        return seconds if seconds >= -60 else float('inf')
+    except (TypeError, ValueError, AttributeError):
+        return float('inf')
+
+
+def assess(state, now):
+    """判定は通信から分離。全周の暫定閾値は実測後に見直す。"""
+    errors = []
+    if state.get('schema') != 1:
+        return ['監視データの形式が不明']
+    for key, label, seconds in [('observedAt', 'GAS稼働記録', 20*60),
+                                 ('lastRun', 'QA巡回成功', 30*60),
+                                 ('lastRecentCycle', '新着巡回', 60*60),
+                                 ('lastDeepCycle', '全履歴巡回', 24*60*60)]:
+        if age(state.get(key), now) > seconds:
+            errors.append(label + 'が停滞または未確認')
+    if not state.get('enabled') or not state.get('clockEnabled'):
+        errors.append('記録または時計が無効')
+    if state.get('pollTriggers') != 1 or state.get('clockTriggers') != 1:
+        errors.append('定期実行の登録数が1件ではない')
+    clock = state.get('clock') or {}
+    if age(clock.get('checkedAt'), now) > 20*60 or clock.get('ok') is not True:
+        errors.append('GAS時計の成功が停滞または未確認')
+    if age(clock.get('lastAuthSuccess'), now) > 40*60:
+        errors.append('NotebookLM認証更新が停滞または未確認')
+    health = state.get('health') or {}
+    if health.get('status') == 'error':
+        errors.append('QA巡回でエラー')
+    if health.get('durationMs', 0) > 120000:
+        errors.append('通常巡回の処理時間が120秒超')
+    daily = state.get('daily') or {}
+    if daily.get('ms', 0) >= state.get('dailyLimitSeconds', 14400)*1000:
+        errors.append('QA巡回の日次予算を消費（再開待ち）')
+    return errors
+
+
+def read_heartbeat():
+    from google.oauth2.service_account import Credentials
+    from googleapiclient.discovery import build
+    credentials = Credentials.from_service_account_info(
+        json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON']),
+        scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
+    service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
+    rows = service.spreadsheets().values().get(
+        spreadsheetId=os.environ['GOOGLE_SPREADSHEET_ID'],
+        range="'GAS_HEALTH'!A1:B1").execute(num_retries=0).get('values', [])
+    if len(rows) != 1 or len(rows[0]) != 2 or rows[0][0] != 'heartbeat':
+        raise ValueError('HEARTBEAT_MISSING')
+    return json.loads(rows[0][1])
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--notify', action='store_true')
+    args = parser.parse_args()
+    now = dt.datetime.now(dt.timezone.utc)
+    state = None
+    try:
+        state = read_heartbeat()
+        errors = assess(state, now)
+    except Exception:
+        # 外部ライブラリの例外には接続情報が含まれ得るため本文を表示しない。
+        errors = ['外部監視からGAS稼働記録を読み取れない']
+    result = {'checkedAt': now.isoformat(), 'errors': errors, 'state': state}
+    Path('monitor-evidence').mkdir(exist_ok=True)
+    Path('monitor-evidence/health.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps({'checkedAt':result['checkedAt'], 'errors':errors}, ensure_ascii=False))
+    if args.notify and (errors or now.hour == 0):
+        from runtime_ops import notify, run_link
+        label = '要確認：' + '、'.join(errors) if errors else '稼働確認：GAS記録・時計・認証更新の時刻は正常です。'
+        notify('Sales QA Bot 外部監視：' + label + '\nSlack回答や新着保存の実成功を保証する確認ではありません。' + run_link())
+    return 1 if errors else 0
+
+
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main())
+    except Exception:
+        print('EXTERNAL_MONITOR_FAILED')
+        raise SystemExit(1)
+
+FILE .github/workflows/gas-monitor.yml
+name: GAS 外部監視
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: 本人DMへ通知する
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: sales-qa-gas-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install google-api-python-client==2.165.0 google-auth==2.40.3 requests==2.32.3
+      - name: GASの最終成功と登録数を読取
+        run: |
+          if [ "$SEND_NOTICE" = "true" ]; then
+            python scripts/gas_monitor.py --notify
+          else
+            python scripts/gas_monitor.py
+          fi
+        env:
+          SEND_NOTICE: ${{ github.event_name == 'schedule' || inputs.notify }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: gas-health-${{ github.run_id }}
+          path: monitor-evidence/health.json
+          retention-days: 30
+          if-no-files-found: error
+
+FILE tests/operations.test.cjs
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const fs=require('node:fs');
+function setup(fail=false) {
+ const p={GOOGLE_SPREADSHEET_ID:'book',ENABLED:'true',ACTIONS_CLOCK_ENABLED:'true',
+  SLACK_BOT_TOKEN:'must-not-leak',ACTIONS_CLOCK_HEALTH:JSON.stringify({ok:true,checkedAt:'now',pendingAuthRequest:{requestId:'private'}}),
+  HEALTH:JSON.stringify({status:'ok',durationMs:45000,thread:'private',requestId:'private'})};
+ let values;
+ const sheet={getRange:()=>({setNumberFormat(){return this;},setValues(v){if(fail)throw Error('secret');values=v;},getDisplayValue(){return values[0][1];}})};
+ const ctx={console:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>p[k]})},
+ SpreadsheetApp:{openById:()=>({getSheetByName:()=>null,insertSheet:()=>sheet}),flush(){}},
+ ScriptApp:{getProjectTriggers:()=>['pollSalesQa','tickActionsClock'].map(n=>({getHandlerFunction:()=>n}))}};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync('gas/Operations.js','utf8'),ctx);
+ return {ctx,read:()=>values};
+}
+test('公開するのは時刻・状態・登録数だけで秘密値や要求IDを含めない',()=>{
+ const x=setup();x.ctx.publishQaHeartbeat_();const raw=x.read()[0][1],s=JSON.parse(raw);
+ assert.equal(s.pollTriggers,1);assert.equal(s.clockTriggers,1);assert.equal(s.health.durationMs,45000);
+ assert.doesNotMatch(raw,/must-not-leak|private|TOKEN|requestId|thread/);
+});
+test('heartbeat失敗は既存の時計処理へ伝播しない',()=>{
+ const x=setup(true);assert.doesNotThrow(()=>x.ctx.publishQaHeartbeatSafely_());
+ assert.throws(()=>x.ctx.inspectQaHeartbeat());
+});
+
+FILE tests/test_gas_monitor.py
+"""停止・時刻異常を正常と判定しないことを外部通信なしで確認。"""
+import datetime as dt
+import importlib.util
+from pathlib import Path
+import unittest
+
+spec = importlib.util.spec_from_file_location('gas_monitor', Path(__file__).resolve().parents[1] / 'scripts/gas_monitor.py')
+monitor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(monitor)
+
+class MonitorTests(unittest.TestCase):
+    def setUp(self):
+        self.now = dt.datetime(2026, 9, 27, tzinfo=dt.timezone.utc)
+        stamp = self.now.isoformat()
+        self.state = dict(schema=1, observedAt=stamp, lastRun=stamp,
+                          lastRecentCycle=stamp, lastDeepCycle=stamp,
+                          enabled=True, clockEnabled=True, pollTriggers=1, clockTriggers=1,
+                          clock=dict(checkedAt=stamp, ok=True, lastAuthSuccess=stamp))
+
+    def test_fresh(self):
+        self.assertEqual(monitor.assess(self.state, self.now), [])
+
+    def test_each_stale_signal_is_detected(self):
+        for key in ['observedAt', 'lastRun', 'lastRecentCycle', 'lastDeepCycle']:
+            state = dict(self.state, **{key:'2026-09-25T00:00:00Z'})
+            self.assertTrue(monitor.assess(state, self.now), key)
+
+    def test_missing_invalid_and_future_fail_closed(self):
+        for value in [None, 'invalid', '2026-09-28T00:00:00Z']:
+            self.assertTrue(monitor.assess(dict(self.state, observedAt=value), self.now))
+
+    def test_clock_auth_trigger_budget_and_duration(self):
+        for delta in [dict(clockEnabled=False), dict(pollTriggers=0), dict(clockTriggers=2),
+                      dict(clock={}), dict(daily={'ms':14400000}),
+                      dict(health={'durationMs':120001}), dict(health={'status':'error'})]:
+            self.assertTrue(monitor.assess(dict(self.state, **delta), self.now), delta)
+
+if __name__ == '__main__':
+    unittest.main()

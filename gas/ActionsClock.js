@@ -133,6 +133,7 @@ function tickActionsClock() {
   health.pendingRecoveryRequest = JSON.parse(props.getProperty('ACTIONS_CLOCK_RECOVERY_REQUEST') || 'null');
   health.elapsedMs = Date.now() - Date.parse(health.checkedAt);
   props.setProperty('ACTIONS_CLOCK_HEALTH', JSON.stringify(health));
+  if (typeof publishQaHeartbeatSafely_ === 'function') publishQaHeartbeatSafely_();
   actionsClockNotice_(health);
   console.log(JSON.stringify(health));
   return health;

@@ -1,0 +1,153 @@
+URL: https://gemini.google.com/app/9e9b56b9b55d4415?hl=ja
+Model: Thinking
+- heading "Gemini の回答" [level=6]
+  - paragraph: GAS外部監視およびBot準備失敗時の再起動抑制に関する差分レビュー結果です。
+  - heading "1. WARN： scripts/bot_watchdog.cjs での過去失敗誤検知および失敗区分の漏れ" [level=3]:
+    - text: 1. WARN：
+    - code: scripts/bot_watchdog.cjs
+    - text: での過去失敗誤検知および失敗区分の漏れ
+  - heading "根拠" [level=4]
+  - list:
+    - paragraph:
+      - text: "成功後の復旧阻害 (False Cooldown):"
+      - code: github.rest.actions.listWorkflowRuns
+      - text: で
+      - code: "status: 'failure'"
+      - text: を指定すると、GitHub API は過去の実行履歴から
+      - code: conclusion == 'failure'
+      - text: のランのみを抽出します。 直前に Bot が復旧して成功（
+      - code: success
+      - text: ）していても、30分以内に過去の失敗（
+      - code: failure
+      - text: ）が存在する場合、その過去の失敗がヒットして
+      - code: Date.now() - ended < 30 * 60 * 1000
+      - text: が成立し、
+      - code: cooldown
+      - text: と判定されて不要な待機が発生します。
+    - paragraph:
+      - text: "failure 以外の異常終了のすり抜け: 依存準備失敗やタイムアウト、Runnerエラー等が発生した場合、GitHub Actions の"
+      - code: conclusion
+      - text: は
+      - code: "'failure'"
+      - text: ではなく
+      - code: "'timed_out'"
+      - text: ","
+      - code: "'startup_failure'"
+      - text: ","
+      - code: "'cancelled'"
+      - text: になることがあります。
+      - code: "status: 'failure'"
+      - text: フィルタではこれらがヒットせず、30分のクールダウンが適用されずに即時復旧要求が送信される可能性があります。
+  - heading "改善案" [level=4]
+  - paragraph:
+    - code: "status: 'failure'"
+    - text: のフィルタを外し、直近の完了済みラン（
+    - code: "status: 'completed'"
+    - text: ）を取得した上で、最新の完了ランが
+    - code: success
+    - text: 以外（
+    - code: failure
+    - text: ","
+    - code: timed_out
+    - text: ","
+    - code: startup_failure
+    - text: 等）である場合のみ cooldown 判定を行ってください。
+  - generic: JavaScript
+  - button "コードをダウンロードする":
+    - img: arrow_circle_down
+  - button "コードをコピー":
+    - img: copy
+  - code: "// 直近の完了ランを取得 const {data: history} = await github.rest.actions.listWorkflowRuns({ ...target, branch: 'main', status: 'completed', per_page: 1, }); if (!Number.isInteger(history?.total_count) || !Array.isArray(history.workflow_runs) || (history.total_count === 0) !== (history.workflow_runs.length === 0)) { throw new Error('BOT_HISTORY_UNKNOWN'); } const last = history.workflow_runs[0]; // 直近の完了結果が成功以外であれば30分クールダウン if (last && last.conclusion !== 'success') { const ended = Date.parse(last.updated_at); if (!Number.isFinite(ended)) throw new Error('BOT_HISTORY_UNKNOWN'); if (Date.now() - ended < 30 * 60 * 1000) { core.info('BOT_RECOVERY_COOLDOWN'); return 'cooldown'; } }"
+  - heading "2. WARN： scripts/gas_monitor.py の全周24時間閾値による誤アラートの懸念" [level=3]:
+    - text: 2. WARN：
+    - code: scripts/gas_monitor.py
+    - text: の全周24時間閾値による誤アラートの懸念
+  - heading "根拠" [level=4]
+  - paragraph:
+    - code: lastDeepCycle
+    - text: （全履歴巡回）の判定閾値が
+    - code: 24*60*60
+    - text: （24時間）に設定されています。 GASの時間主導型トリガーは、Google側のインフラの仕様上、数分〜十数分の実行遅延が日常的に発生します。24時間ぴったりを閾値にすると、正常稼働していても定刻より1〜2分遅れただけで「全履歴巡回が停滞または未確認」のアラートが通知されます。
+  - heading "改善案" [level=4]
+  - paragraph:
+    - text: 実測調整までの暫定値であっても、GASトリガーのゆらぎ（遅延）を考慮して
+    - text: 25時間（
+    - code: 25 * 60 * 60
+    - text: ）〜26時間
+    - text: 程度にバッファを持たせることを推奨します。
+  - generic: Python
+  - button "コードをダウンロードする":
+    - img: arrow_circle_down
+  - button "コードをコピー":
+    - img: copy
+  - code: "for key, label, seconds in [('observedAt', 'GAS稼働記録', 20*60), ('lastRun', 'QA巡回成功', 30*60), ('lastRecentCycle', '新着巡回', 60*60), ('lastDeepCycle', '全履歴巡回', 25*60*60)]: # 25時間に緩和 if age(state.get(key), now) > seconds: errors.append(label + 'が停滞または未確認')"
+  - heading "3. INFO： .github/workflows/bot.yml の自己再起動抑制ロジック" [level=3]:
+    - text: 3. INFO：
+    - code: .github/workflows/bot.yml
+    - text: の自己再起動抑制ロジック
+  - heading "根拠" [level=4]
+  - paragraph:
+    - text: Restart workflow ステップの条件式が
+    - code: "if: ${{ !cancelled() && steps.bot.outcome == 'success' }}"
+    - text: に変更されました。 これにより、
+    - code: pip install
+    - text: などの事前準備ステップや Bot 本体の実行ステップが失敗（
+    - code: outcome == 'failure'
+    - text: や
+    - code: "'skipped'"
+    - text: ）した場合には Restart workflow が走らず停止します。
+  - heading "評価" [level=4]
+  - paragraph: 「依存準備失敗による即時自己再起動ループの停止」と「正常終了時の継続ループ」の両立が達成されており、要件通りの挙動となっています。
+  - heading "4. INFO： gas/Operations.js の安全対策と機密情報非開示" [level=3]:
+    - text: 4. INFO：
+    - code: gas/Operations.js
+    - text: の安全対策と機密情報非開示
+  - heading "根拠" [level=4]
+  - list:
+    - paragraph:
+      - code: publishQaHeartbeatSafely_()
+      - text: 内で
+      - code: try-catch
+      - text: により例外が保護されており、書き込み失敗時もメイン処理である
+      - code: tickActionsClock
+      - text: を落とさない設計になっています。
+    - paragraph:
+      - code: publishQaHeartbeat_()
+      - text: 内でスプレッドシートに書き込むオブジェクトから、
+      - code: requestId
+      - text: や
+      - code: thread
+      - text: などのプライベートデータやトークン類が除外されています。
+  - heading "評価" [level=4]
+  - paragraph:
+    - text: 単体テスト（
+    - code: operations.test.cjs
+    - text: ）も含めて適切に実装されています。
+  - button "良い回答":
+    - img: thumb_up
+  - button "悪い回答":
+    - img: thumb_down
+  - button "やり直す":
+    - img: refresh
+  - button "コピー":
+    - img: copy
+  - button "他のオプションを表示":
+    - img: more_horiz
+  - textbox "Gemini へのプロンプトを入力" [active]:
+    - text: Gemini に相談
+    - paragraph
+    - text: encrypted
+  - button "アップロードとツール":
+    - img: plus
+  - 'button "モード選択ツールを開く（現在のモデル: 思考モード）"':
+    - generic: 思考モード
+    - img: keyboard_arrow_down
+  - button "音声入力 (⌘⇧D)":
+    - img: mic
+  - paragraph:
+    - text: CNCTOR のチャットはモデルのトレーニングには使用されません。Gemini は AI であり、不正確な情報を表示することがあります。
+    - link "プライバシーと Gemini 新しいウィンドウで開く":
+      - /url: https://support.google.com/gemini/answer/14620100
+      - text: プライバシーと Gemini
+      - generic: 新しいウィンドウで開く
+- generic: Preventing False Cooldowns

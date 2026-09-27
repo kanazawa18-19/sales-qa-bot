@@ -41,6 +41,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run bot
+        id: bot
         timeout-minutes: 27
         run: python scripts/runtime_ops.py supervise
         env:
@@ -63,7 +64,7 @@ jobs:
 
       - name: Restart workflow
         id: restart
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.bot.outcome == 'success' }}
         run: |
           curl --fail --silent --show-error --max-time 25 -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \

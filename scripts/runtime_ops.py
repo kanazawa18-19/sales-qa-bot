@@ -139,7 +139,7 @@ def supervise(duration=24 * 60, interval=5 * 60):
                     prior = [r for r in prior if str(r["id"]) != os.environ.get("GITHUB_RUN_ID")
                              and r["head_branch"] == "main" and r["status"] == "completed"]
                     if not prior or prior[0]["conclusion"] != "failure":
-                        notify("Sales QA Bot：Botが予定より早く停止しました。再起動を試みます。" + run_link())
+                        notify("Sales QA Bot：Botが予定より早く停止しました。30分以上の待機後、外部の停止確認から復旧を試みます。" + run_link())
                 except Exception:
                     print("OWNER_NOTIFICATION_FAILED", flush=True)
                 time.sleep(max(0, 300 - (time.monotonic() - launched)))

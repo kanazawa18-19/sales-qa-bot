@@ -31,7 +31,7 @@ for (const state of ['in_progress', 'queued', 'pending', 'waiting', 'requested']
 test('全状態に未完了runがなければmainへ1回だけ起動要求する', async () => {
   const f = fixture();
   assert.equal(await recover(f.input), 'requested');
-  assert.equal(f.calls.filter(([method]) => method === 'GET').length, 5);
+  assert.equal(f.calls.filter(([method]) => method === 'GET').length, 6);
   const posts = f.calls.filter(([method]) => method === 'POST');
   assert.equal(posts.length, 1);
   assert.deepEqual(posts[0][1], {owner: 'example', repo: 'test', workflow_id: 'bot.yml', ref: 'main'});
@@ -91,10 +91,26 @@ test('Botと停止確認の実行枠・取消設定・旧時計削除を保持�
   assert.doesNotMatch(bot, /^  schedule:/m);
   assert.match(bot, /^  cancel-in-progress: false$/m);
   assert.match(bot, /group: \$\{\{ inputs\.owner_dm_smoke && 'sales-qa-owner-dm-smoke' \|\| 'sales-qa-bot' \}\}/);
-  assert.match(bot, /if: \$\{\{ !cancelled\(\) \}\}/);
+  assert.match(bot, /if: \$\{\{ !cancelled\(\) && steps\.bot\.outcome == 'success' \}\}/);
   assert.match(bot, /"ref":"main"/);
   assert.match(watchdog, /^  group: sales-qa-bot-watchdog$/m);
   assert.match(watchdog, /^  cancel-in-progress: false$/m);
   assert.match(watchdog, /if: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/);
   assert.match(watchdog, /retries: 0/);
+});
+
+ test('準備失敗から30分は復旧を要求しない', async () => {
+  const f = fixture(); const list = f.actions.listWorkflowRuns;
+  f.actions.listWorkflowRuns = async args => args.status === 'failure'
+    ? {data:{total_count:1,workflow_runs:[{conclusion:'failure',updated_at:new Date().toISOString()}]}}
+    : list(args);
+  assert.equal(await recover(f.input),'cooldown');
+  assert.equal(f.calls.some(([method])=>method==='POST'),false);
+});
+ test('失敗から30分後には復旧を要求する', async () => {
+  const f = fixture(); const list = f.actions.listWorkflowRuns;
+  f.actions.listWorkflowRuns = async args => args.status === 'failure'
+    ? {data:{total_count:1,workflow_runs:[{conclusion:'failure',updated_at:new Date(Date.now()-1800001).toISOString()}]}}
+    : list(args);
+  assert.equal(await recover(f.input),'requested');
 });

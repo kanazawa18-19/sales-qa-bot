@@ -1,0 +1,45 @@
+name: GAS 外部監視
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: 本人DMへ通知する
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: sales-qa-gas-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install google-api-python-client==2.165.0 google-auth==2.40.3 requests==2.32.3
+      - name: GASの最終成功と登録数を読取
+        run: |
+          if [ "$SEND_NOTICE" = "true" ]; then
+            python scripts/gas_monitor.py --notify
+          else
+            python scripts/gas_monitor.py
+          fi
+        env:
+          SEND_NOTICE: ${{ github.event_name == 'schedule' || inputs.notify }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: gas-health-${{ github.run_id }}
+          path: monitor-evidence/health.json
+          retention-days: 30
+          if-no-files-found: error
