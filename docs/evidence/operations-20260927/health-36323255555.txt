@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-09-27T13:41:22.205287+00:00",
+  "errors": [],
+  "state": {
+    "schema": 1,
+    "observedAt": "2026-09-27T13:40:47.363Z",
+    "enabled": true,
+    "clockEnabled": true,
+    "pollTriggers": 1,
+    "clockTriggers": 1,
+    "lastRun": "2026-09-27T13:39:49.686Z",
+    "lastRecentCycle": "2026-09-27T13:39:03.768Z",
+    "lastDeepCycle": "2026-09-27T13:03:08.532Z",
+    "health": {
+      "status": "ok",
+      "started": "2026-09-27T13:39:03.095Z",
+      "durationMs": 46869
+    },
+    "clock": {
+      "ok": true,
+      "checkedAt": "2026-09-27T13:40:37.744Z",
+      "lastAuthSuccess": "2026-09-27T13:36:04Z",
+      "elapsedMs": 8445
+    },
+    "daily": {
+      "startedAt": 1790509443011,
+      "ms": 3123463
+    },
+    "dailyLimitSeconds": 14400
+  }
+}

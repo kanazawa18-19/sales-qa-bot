@@ -38,3 +38,16 @@ NotionはauditQaNotionDuplicatesで全件を読取り、URL別重複と固定同
 ## 実測上の注意
 
 2026-09-27 22:18:57 JST、関数選択の画面反映を確認せずpollSalesQaを手動で1回実行した。45.379秒、status=ok、日次累計2,933,909ms。22:22:58のqaRecordingProgressではlastDeepCycle=22:03:08.532、lastRecentCycle=22:18:58.592。この区間は定期だけの一周測定に使わない。210秒helperは今回使っていない。24時間と実新着遅延は未実測。
+
+### 2026-09-27のNotion表示整理
+
+全1,008ページを集計し、URLあり305種類・重複9組・余分53ページを確認。URLが無い650ページは今回の重複判定対象外。
+`DuplicateViews.js`は固定同期先9ページを保持し、余分53ページのプロパティを`NOTION重複退避記録`へ保存・読戻ししてから`QA重複退避`だけをtrueにする。ページ自体・本文・コメントは残す。退避記録はquery応答の写しで、本文・コメント・長いrelation等の完全バックアップではない。元ページが保持の正本。
+
+通常は[QA（重複整理済み）](https://www.notion.so/6025578045564b86b83c9ebc579ce31a?v=3e8d8ea8d4f3817d920c000cdfb5d0de)へ切り替える。重複側にだけある記入は[重複退避（元の記入を保持）](https://www.notion.so/6025578045564b86b83c9ebc579ce31a?v=3e8d8ea8d4f381e19c38000cc8157814)に残る。既存ビューは変更していない。物理的な統合ではない。
+
+22:59:58に開始、53件退避とフラグ反映後、ビュー作成の必須type欠落でHTTP_400。修正後23:03:23–37に再実行しchanged=0で2ビュー作成。23:06:12–22の読取照合はbackupPages=53、extraPages=53、marked=53、fixedMarked=0、propertyDifferences=0。新通常ビューの選択を画面でも確認した。本文・コメントの前後全量照合は未実施（変更APIを呼んでいない）。
+
+通常巡回と同じScriptLockを使用し、長時間競合を避けるため3分で次ページ着手を止める。ARCHIVE_BATCH_PAUSED_RETRYならpreviewのalreadyMarkedを確認して同関数を再実行可能。9組53頁から件数が変わった場合は変更前に停止する。列追加後の退避失敗では空のチェック列は残り得るが、ページ内容は変えない。
+
+Views APIは[公式作成仕様](https://developers.notion.com/reference/create-view)と[一覧仕様](https://developers.notion.com/reference/list-views)に従い、専用ヘルパーだけ2026-03-11を使う。既存同期API版は維持。
