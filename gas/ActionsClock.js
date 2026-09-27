@@ -6,7 +6,7 @@ function actionsClockGitHub_(path, payload) {
   if (!token) throw new Error('CLOCK_TOKEN_REQUIRED');
   var options = {method: payload ? 'post' : 'get', muteHttpExceptions: true,
     followRedirects: false, headers: {Authorization: 'Bearer ' + token,
-      Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}};
+      Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Cache-Control': 'no-cache'}};
   if (payload) { options.contentType = 'application/json'; options.payload = JSON.stringify(payload); }
   var response;
   try { response = UrlFetchApp.fetch('https://api.github.com/repos/' + ACTIONS_CLOCK_REPO + path, options); }
@@ -82,13 +82,21 @@ function tickActionsClock() {
     if (props.getProperty('ACTIONS_CLOCK_MIGRATION_ACK') !== 'true') throw new Error('CLOCK_MIGRATION_REQUIRED');
     if (!props.getProperty('HEALTH_EMAIL')) throw new Error('CLOCK_HEALTH_EMAIL_REQUIRED');
     var runs = actionsClockRuns_('auth-refresh.yml');
-    var history = actionsClockGitHub_('/actions/workflows/auth-refresh.yml/runs?branch=main&per_page=100').workflow_runs;
-    if (!Array.isArray(history)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
-    var success = history.find(function(r) {return r.status === 'completed' && r.conclusion === 'success';});
+    // 成功確認と要求照合を全履歴から分ける。古い一覧応答で成功を見失わない。
+    var successes = actionsClockGitHub_('/actions/workflows/auth-refresh.yml/runs?branch=main&status=success&per_page=1').workflow_runs;
+    if (!Array.isArray(successes)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
+    var success = successes.find(function(r) {return r.status === 'completed' && r.conclusion === 'success';});
     health.lastAuthSuccess = success ? success.updated_at : null;
+    health.lastAuthRunId = success ? success.id : null;
     var pending = JSON.parse(props.getProperty('ACTIONS_CLOCK_AUTH_REQUEST') || 'null');
-    if (pending && history.some(function(r) {return r.display_title === 'GAS認証更新 ' + pending.requestId;})) {
-      props.deleteProperty('ACTIONS_CLOCK_AUTH_REQUEST'); pending = null;
+    if (pending) {
+      var since = new Date(Date.parse(pending.requestedAt) - 60000).toISOString();
+      var history = actionsClockGitHub_('/actions/workflows/auth-refresh.yml/runs?branch=main&event=workflow_dispatch&created=' + encodeURIComponent('>=' + since) + '&per_page=100').workflow_runs;
+      if (!Array.isArray(history)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
+      health.authRequestHistoryCount = history.length;
+      if (history.some(function(r) {return r.display_title === 'GAS認証更新 ' + pending.requestId;})) {
+        props.deleteProperty('ACTIONS_CLOCK_AUTH_REQUEST'); pending = null;
+      }
     }
     if (!runs.length && !pending) {
       pending = actionsClockDispatch_('auth-refresh.yml', {ref: 'main'}, 'ACTIONS_CLOCK_AUTH_REQUEST');

@@ -3,7 +3,7 @@ run-name: ${{ inputs.clock_request_id && format('GAS停止確認 {0}', inputs.cl
 
 on:
   schedule:
-    - cron: '17,47 * * * *'  # GASへの切替確認後に4時間へ緩める
+    - cron: '47 */4 * * *'  # GAS停止時の復旧保険
   workflow_dispatch:
     inputs:
       clock_request_id:

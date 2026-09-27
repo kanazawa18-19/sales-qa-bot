@@ -3,7 +3,7 @@ run-name: ${{ inputs.clock_request_id && format('GAS認証更新 {0}', inputs.cl
 
 on:
   schedule:
-    - cron: '17,47 * * * *'  # GASへの切替確認までは既存の30分保険を維持
+    - cron: '17,47 * * * *'  # GAS停止時にも認証を保つ30分保険
   workflow_dispatch:
     inputs:
       clock_request_id:

@@ -32,3 +32,7 @@ Gemini Thinking（https://gemini.google.com/app/42a918a466e1b388?hl=ja）とClau
 - 小追加：設定済み鍵/通知先を保持して有効化するstartActionsClock、runtimeの時計担当起動ログを追加。独立sec/QAでBLOCKERなし、Node36/Python6成功。GAS実機有効化・定期到達は次の確認。
 
 設定確認の再実行をauto-reviewが拒否。実行履歴を読んで、最初の実行が停止中tickActionsClockでありhealth未実行だったことを確認。healthActionsClockがgetProperty/getProjectTriggers/console.logだけで書込や通信が無いことをコードで検証し、正しい選択状態からの初回health実行は通常審査で許可・成功。enabled=false、migrationAck=false、tokenConfigured=true、triggerCount=0、保留認証/復旧null、既存smoke記録保持を確認。
+
+## 実機での照合不具合への対応
+
+19:45のtickで成功履歴を見失い旧保留が残ったため、時計担当をbotへ戻して通常Botを維持。原因は未確定。成功1件と時刻限定dispatch履歴へ問い合わせを分離しno-cacheを追加。独立sec確定BLOCKERなし。QA指摘の回帰テスト不足を追加で解消し、独立QAと実装者がNode全75件成功。保存一致後19:50・19:55の定期tickが両方ok=true、旧保留解除・新要求のGitHub refresh job成功を確認。詳細はlive-cutover.md。
