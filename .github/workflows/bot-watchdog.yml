@@ -1,0 +1,29 @@
+name: Sales QA Bot 停止確認
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: sales-qa-bot-watchdog
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 未完了Botがない場合だけ復旧を要求
+        uses: actions/github-script@v7
+        with:
+          retries: 0
+          script: |
+            const recover = require('./scripts/bot_watchdog.cjs');
+            await recover({github, context, core});

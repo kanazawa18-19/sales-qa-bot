@@ -1,8 +1,6 @@
 name: Sales QA Bot
 
 on:
-  schedule:
-    - cron: '*/35 * * * *'  # 自己再起動が途切れた場合のフォールバック
   workflow_dispatch:
     inputs:
       owner_dm_smoke:
@@ -22,7 +20,8 @@ permissions:
 
 concurrency:
   group: ${{ inputs.owner_dm_smoke && 'sales-qa-owner-dm-smoke' || 'sales-qa-bot' }}
-  cancel-in-progress: true
+  # 自己再起動・復旧・pushが重なっても稼働中Botは止めない。
+  cancel-in-progress: false
 
 jobs:
   run-bot:
