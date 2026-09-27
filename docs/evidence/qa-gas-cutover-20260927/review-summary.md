@@ -6,3 +6,7 @@
 - Gemini Thinking：初回回答は辞退、コードを読むだけの依頼と明確化した1回の再依頼で回答取得。BLOCKERなし。24h重ね読みは意図した安全側仕様。日次予算を実測する。Notion型は既存関数がcへcacheするため二重通信指摘は誤検知。sheet_は欠落時にthrowで自動作成しないためinspect副作用指摘も誤検知。prepare部分保存は記録無効・prepared未設定の安全側で、再実行により修復する。
 - Claude Opus5.5中：確定BLOCKERなし、既存関数の契約次第のWARNを取得。config_はpのほかqa/channelsだけ派生しsourceIdはc内cache、book_はpのIDを直接利用。sheet_欠落throw、prepareSalesQa/installSalesQaTriggerはlockなしで入れ子懸念は誤検知。prepareは補助5タブの不足分作成のみ、QA/STATE/同期IDの初期化なし。24h重ね読みは今回同日切替で適用。
 - Claudeの本番列/schema照合WARNを採用し、inspectへA:JヘッダーとNotion書込7列の型検証を追加。ヘッダーは実本番A1:J1を読取して照合。担当OFFは新Botのライブログ/旧backfill終了を実証してから開始する。既定trueは復旧と移行前運転を保持し、設定削除で復活し得る点を運用上の制約として残す。
+
+実機初回に既存Notion重複を検知。Slack URL一致の既存ページのみを固定する小修正を独立secでBLOCKERなし。取得候補に矛盾があれば停止。初回の100件という報告はログ省略と件数を取り違えた誤りで訂正、読戻しの実取得44件を記録。ページ削除なし。
+実記録3件の読戻しに成功。通常定期20:54/20:59とも完了。Node87/Python15成功。初回全周の実測のため、QA専用の無用な候補走査を省略し、通常設定45秒は変更せず初回だけ210秒の予算を渡すhelperを追加。既存ロック・日次上限は維持。
+Gemini会話https://gemini.google.com/app/9b4c951b8c4460db?hl=ja、Claude会話https://claude.ai/chat/99d70ed5-c17f-4429-b976-a9712ffee1e2。

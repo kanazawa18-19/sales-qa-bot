@@ -89,3 +89,11 @@ test('実記録の読戻しは両保存先1件・回答一致を要求する',()
  assert.throws(()=>x.ctx.verifyQaProduction(),/QA_NOTION_READBACK_MISMATCH/);
  qa.push(qa[0]);assert.throws(()=>x.ctx.verifyQaProduction(),/QA_READBACK_DUPLICATE/);
 });
+test('初回全履歴は限定予算を渡し通常設定を変更しない',()=>{
+ const x=setup({RUN_BUDGET_SECONDS:'45'});let seen;
+ x.ctx.pollSalesQaWithBudget_=v=>seen=v;x.ctx.continueQaInitialScan();
+ assert.equal(seen,210);assert.equal(x.p.RUN_BUDGET_SECONDS,'45');
+ x.ctx.pollSalesQaWithBudget_=()=>{throw Error('HTTP_503');};
+ assert.throws(()=>x.ctx.continueQaInitialScan(),/HTTP_503/);
+ assert.equal(x.p.RUN_BUDGET_SECONDS,'45');
+});

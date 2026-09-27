@@ -91,12 +91,17 @@ function pauseQaProduction() {
   PropertiesService.getScriptProperties().setProperty('ENABLED', 'false');
   console.log('QA_RECORDING_PAUSED');
 }
-function inspectQaExistingDuplicates() {
-  var c = config_(), ts = '1789607490.454059';
-  var pages = notion_(c, 'data_sources/'+sourceId_(c)+'/query', {
-    filter:{property:'タイムスタンプ',rich_text:{equals:ts}}
-  }).results;
-  var out = {ts:ts, returnedCount:pages.length, pages:pages.slice(0,5).map(function(p) {return {id:p.id,createdAt:p.created_time,
-    editedAt:p.last_edited_time,url:(p.properties.URL || {}).url};})};
+function qaRecordingProgress() {
+  var p=PropertiesService.getScriptProperties(), s=JSON.parse(p.getProperty('SCAN_STATE') || '{}');
+  var out={runBudgetSeconds:Number(p.getProperty('RUN_BUDGET_SECONDS') || 45),
+    dailyLimitSeconds:Number(p.getProperty('DAILY_RUNTIME_LIMIT_SECONDS') || 14400),
+    lastDeepCycle:p.getProperty('LAST_CYCLE_SUCCESS'), lastRecentCycle:p.getProperty('LAST_RECENT_CYCLE_SUCCESS'),
+    cursorPresent:!!s.cursor, parentsRemaining:s.parents ? s.parents.length-(s.index || 0) : null,
+    thread:s.thread ? s.thread.ts : null, dailyRuntime:JSON.parse(p.getProperty('DAILY_RUNTIME') || '{}')};
   console.log(JSON.stringify(out)); return out;
+}
+
+// 初回全履歴だけ210秒で進める。通常の予算設定は書き換えない。
+function continueQaInitialScan() {
+  pollSalesQaWithBudget_(210);
 }

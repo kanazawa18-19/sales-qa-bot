@@ -861,3 +861,11 @@ test('既存Notion重複はSlack URL一致のページへ固定し曖昧な重�
  pages.push({id:'conflict',properties:{URL:{url:'https://different'}}});
  assert.throws(()=>ctx.selectNotionQaPage_(pages,url),/NOTION_DUPLICATE/);
 });
+test('QA記録専用では同期済み返信の候補走査を省略し次の親へ進む',()=>{
+ let reads=0,syncs=0;
+ const config={channels:['CQ'],qa:'CQ',ai:'',mentions:[]};
+ const io={staged(){reads++;return [{ts:'100',text:'質問'},{ts:'101',text:'回答'}];},sync(){syncs++;}};
+ let s={latest:'200',thread:{ts:'100',done:true},parents:['100'],index:0};
+ s=qa.step(s,io,config);s=qa.step(s,io,config);
+ assert.equal(reads,1);assert.equal(syncs,1);assert.equal(s.thread,null);assert.equal(s.index,1);
+});

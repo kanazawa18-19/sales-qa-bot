@@ -75,6 +75,10 @@ var SalesQa = (function () {
                 s.thread.done = !s.thread.cursor;
             }
             else {
+                // 記録専用では回答候補がない。同期済みの返信を再読込しない。
+                if (channel === c.qa && s.thread.synced && !c.ai && !(c.mentions || []).length) {
+                    s.thread = null; s.index++; return s;
+                }
                 var messages = io.staged().sort(function (a, b) {
                     return Number(a.ts) - Number(b.ts);
                 });

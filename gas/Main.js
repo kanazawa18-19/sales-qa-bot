@@ -516,6 +516,9 @@ function io_(c, book, lane) {
     };
 }
 function pollSalesQa() {
+    return pollSalesQaWithBudget_(null);
+}
+function pollSalesQaWithBudget_(initialBudget) {
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('ENABLED') !== 'true')
         return;
@@ -531,7 +534,7 @@ function pollSalesQa() {
             return;
         }
         var c = config_(), book = book_(c);
-        var budgetSeconds = Math.min(210, Math.max(15, Number(c.p.RUN_BUDGET_SECONDS || 45)));
+        var budgetSeconds = Math.min(210, Math.max(15, Number(initialBudget || c.p.RUN_BUDGET_SECONDS || 45)));
         var dailyLimit = Math.max(60, Number(c.p.DAILY_RUNTIME_LIMIT_SECONDS || 14400));
         if (!isFinite(budgetSeconds) || !isFinite(dailyLimit))
             throw new Error('CONFIG_RUNTIME_BUDGET');
