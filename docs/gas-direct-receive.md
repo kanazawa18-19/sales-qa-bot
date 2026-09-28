@@ -86,21 +86,22 @@ Slack公式仕様：Socket Modeを有効にしている間、そのアプリの�
   1. **curlでのPOSTは`-X POST`を明示すると`-L`のリダイレクト追従が壊れる**（curl側の癖。`-d`だけでPOSTと判断させれば正しく追従する）。これを踏まえて再検証し、doPostが実際にSlackの302越しに正しく動くことを確認した。
   2. **GAS Webアプリは例外時も常にHTTP 200を返す**ことを実機で確認し、`doPost`の失敗処理を修正済み（上記「決定事項」参照、コミット62d7347）。
   3. **`workflow_dispatch`はワークフローファイルがリポジトリのデフォルトブランチ（main）に存在しないとGitHub側に認識されない。** `answer.yml`はslack-httpブランチにしかなく未登録だったため、GASからのdispatchはGitHub API 404→`rejected`扱いになった（実機テスト用のダミー行1件がこの状態で`GAS_HTTP_QUEUE`に残っている。実害のないテストデータなので削除不要）。
-- **mainへの反映が1点だけ必要（本人操作）**：`answer.yml`をmainへ登録する必要があるが、**mainブランチへのpushはClaude Code側の自動判定が「本番デプロイ」としてブロックする。** 代わりにmain相当のレビュー用ブランチ`register-answer-workflow`（`.github/workflows/answer.yml`だけを追加した1コミット、内容はslack-httpと同一）をpush済み。本人が次のいずれかで取り込んでください：
-  - GitHub上で`register-answer-workflow`→`main`のPRを作成してマージする（push時にURLが表示されている）
-  - もしくはローカルで`git checkout main && git merge register-answer-workflow && git push origin main`
-  - このファイルはworkflow_dispatch専用で、GASからの明示的な起動以外では何も実行しない。bot.yml・auth-refresh.yml等mainの既存スケジュール動作には影響しない。
-- **登録後にやること**：`GAS_HTTP_QUEUE`へ新しい模擬event（またはowner DMでの実試験）を送り、`tickHttpQueue`がanswer.ymlを起動→NotebookLM実回答→本人DMへの返信→`done`状態への確定、までの通しを確認する。
+- **mainへの反映は完了**：`answer.yml`をmainへ登録する必要があった（`workflow_dispatch`はワークフローファイルがデフォルトブランチに存在しないとGitHub側が認識しない）。**mainブランチへの直接pushはClaude Code側の自動判定が「本番デプロイ」としてブロックした**ため、レビュー用ブランチ経由で本人がマージする形で反映（`register-answer-workflow`は手違いで空コミットのままpushしてしまい、`register-answer-workflow-v2`で再度正しく用意し直した。本人が`git merge origin/register-answer-workflow-v2`でmainへ取り込み済み、main=1213ffd）。
+- **エンドツーエンドの通しを実機で確認済み（2026-09-28）**：本人のSlack DM宛に模擬event_callbackを3回送信して検証した。
+  1. `message`タイプ・channel=owner DMで送信 → `domain.plan()`が`not_relevant`と判定しSKIPPED（GitHub Actionsの`secrets.AI_CHANNEL_ID`は本人DMとは別チャンネルに設定されているため。`message`タイプの関連判定はそのチャンネルでのみ成立する仕様どおり）。
+  2. `app_mention`タイプ・channel=owner DMで送信 → **ANSWER_SENT を確認。実際にNotebookLMが回答を生成し、本人のSlack DMへ返信が投稿された**（reply_ts記録あり）。GAS→GitHub Actions→NotebookLM→Slack返信の一連の経路が実機で動作することを確認した。
+  3. GAS側の`tickHttpQueue`による「実返信をconversations.repliesで確認してdoneにする」ステップは、上記2件とも`uncertain`のまま止まった。原因は模擬テスト側の制約で、送信した`ts`/`thread_ts`が架空の値（実際にSlackへ投稿されたことのないタイムスタンプ）だったため、Slack側に「その時刻を親とするスレッド」自体が存在せず`conversations.replies`が見つけられなかったと判断している（未確定だが最も整合的な説明）。**実際の利用では質問メッセージ自体がSlackに実在するため、この制約は生じない見込み**。真の確定確認（doneへの遷移）は、実際のSlack発言か、実在するメッセージのtsを使った模擬テストでのみ可能。
 
 ## 未着手・本人操作待ち（上記の続き）
 
 1. ~~GitHub設定~~ → 完了。
-2. ~~GAS設定（シート作成・有効化・デプロイ）~~ → 完了（上記参照）。
-3. **`answer.yml`のmain登録** → 本人操作待ち（上記参照）。登録後にGAS→GitHub Actionsの通しが初めて成功する。
-4. **3秒受付の実測、GASコールドスタート遅延の実測** → 上記のcurl検証で機能面は確認できたが、レイテンシの定量測定は未実施。
-5. **試験**：`answer.yml`登録後、本人DM限定（OWNER_ONLY=true）で模擬event_callback送信 or 別Slackアプリ経由の実配信による通しを確認する。
-6. **なりすまし許容の実害範囲を再確認**：本人が明示判断した「Slackへの誤投稿」以外に、署名なし公開URLは知る者が誰でもGitHub Actionsを起動できてしまう（1周期5件/分の上限はあるが「歯止め」ではなく「上限まで確実に消費されうる」）。Actions実行回数・GAS_HTTP_QUEUEシートの行数増加という副次コストも許容範囲か、本番投入前に一度本人に確認する。
-7. **本番切替**：試験が済むまでSocket Modeは変更しない。切替する場合も本人の明示指示後、docs/slack-http.mdの「本番の受信先を変えるとき」に準じた手順（旧Bot停止確認→Request URL変更→検証）を新設計向けに書き直す。
+2. ~~GAS設定（シート作成・有効化・デプロイ）~~ → 完了。
+3. ~~`answer.yml`のmain登録~~ → 完了。
+4. ~~GAS→GitHub Actions→NotebookLM→Slack返信の通し確認~~ → 完了（上記参照）。「done」への確定は模擬テストの制約で未確認、実配信で確認予定。
+5. **3秒受付の実測、GASコールドスタート遅延の実測** → 上記のcurl検証で機能面は確認できたが、レイテンシの定量測定は未実施。
+6. **実Slackでの通し試験**：別のテスト用Slackアプリ経由の実配信、または実在するメッセージへの模擬app_mentionで「done」への確定まで確認する。
+7. **なりすまし許容の実害範囲を再確認**：本人が明示判断した「Slackへの誤投稿」以外に、署名なし公開URLは知る者が誰でもGitHub Actionsを起動できてしまう（1周期5件/分の上限はあるが「歯止め」ではなく「上限まで確実に消費されうる」）。Actions実行回数・GAS_HTTP_QUEUEシートの行数増加という副次コストも許容範囲か、本番投入前に一度本人に確認する。
+8. **本番切替**：試験が済むまでSocket Modeは変更しない。切替する場合も本人の明示指示後、docs/slack-http.mdの「本番の受信先を変えるとき」に準じた手順（旧Bot停止確認→Request URL変更→検証）を新設計向けに書き直す。
 
 ## 根拠
 
