@@ -21,6 +21,14 @@ Slack発言 → GAS Webアプリ doPost（署名検証なし・即200）
 
 常駐Bot（Socket Mode）・QA記録（既存GASのpollSalesQa）・NotebookLM認証更新（auth-refresh.yml）は変更しない。この設計は「質問への回答」だけを対象にする。
 
+## なぜGitHub Actionsが必要か（全部GASにできないか、2026-09-28に本人へ回答）
+
+GAS単独で完結できない箇所は**NotebookLMへの接続だけ**。それ以外（Slack受信・キュー・状態確認）は既にGASで完結している。
+
+NotebookLMには公式API（決まったアクセス方法）が無く、既存のPython部品`notebooklm-py`は「ブラウザでログインしたときと同じ通信」を再現する非公式クライアント。クッキー管理・HTMLからのトークン抽出・失効時の再ログインという一連の処理を持ち、単純な1回の外部通信の置き換えではない。GASのUrlFetchApp自体は外部通信ができるため理論上「絶対に不可能」ではないが、この一連の仕組みをJavaScriptでゼロから作り直し、Google側の仕様変更のたびに自前で直し続けることになる。2026-09-27の調査（docs/gas-without-gcp.md）で一度検討し、既存Python部品を残す方を選んだ経緯があり、今回もその判断を踏襲した。
+
+GitHub Actionsは「Pythonの部品を動かす場所」として使っているだけで、GitHub Actions固有の機能に依存してはいない。将来この置き場所を変えることは可能だが、「Python部品をどこかで動かす必要がある」という制約自体はNotebookLMの接続方式を変えない限りなくならない。
+
 ## 決定事項
 
 | 論点 | 決定 | 根拠 |
@@ -71,7 +79,7 @@ Slack公式仕様：Socket Modeを有効にしている間、そのアプリの�
 ## 未着手・本人操作待ち
 
 1. **GitHub設定**：`vars.HTTP_ANSWER_OWNER_ONLY`（既定true）・`vars.OWNER_USER_ID`・`vars.OWNER_DM_ID`（repository variables、非シークレットのSlack ID）。既存`secrets.AI_CHANNEL_ID`・`secrets.SLACK_BOT_TOKEN`・`secrets.NOTEBOOKLM_STORAGE_JSON`は追加設定不要。GASの`ACTIONS_CLOCK_TOKEN`・`BOT_USER_ID`・`SLACK_READ_TOKEN`スクリプトプロパティも既存流用で新規設定不要（新しく要るのは`GOOGLE_SPREADSHEET_ID`のみ、これも既存pollSalesQaと同じ値）。
-2. **GAS設定**：`prepareHttpQueue()`実行→シート作成確認→Web Appとしてデプロイ（アクセス権限「全員（匿名を含む）」が必須、これも本人判断が要る変更）→`HTTP_QUEUE_ENABLED=true`→`installHttpQueue()`。
+2. **GAS設定**：`prepareHttpQueue()`実行→シート作成確認→Web Appとしてデプロイ（アクセス権限「全員（匿名を含む）」、2026-09-28本人確認済み）→`HTTP_QUEUE_ENABLED=true`→`installHttpQueue()`。
 3. **実機で必ず確認する項目（本番投入前）**：
    - **doPost内で例外を投げたとき、Slackから見て実際に非200が届くか。** ウェブ検索では「常に200」「未捕捉例外は500になる」の両方の情報があり確証を得られなかった。ここが崩れていると「曖昧な内部障害はSlack再送に任せる」という設計全体の前提が崩れ、イベントが静かに失われる。
    - 3秒受付の実測、GASコールドスタート遅延の実測。
