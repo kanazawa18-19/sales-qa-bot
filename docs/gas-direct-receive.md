@@ -34,8 +34,9 @@ GitHub Actionsは「Pythonの部品を動かす場所」として使っている
 | 論点 | 決定 | 根拠 |
 |---|---|---|
 | Slack署名検証 | 省略する | 本人判断（なりすまし許容）。GASのWeb Appは「全員（匿名含む）アクセス可」で公開する必要があり、URLを知る者は誰でも偽イベントを送れる。実害は既存の関連チャンネル利用者が既に持つ「botに質問する」権限と同等の範囲に留める設計（下記「間引き」参照）。URL自体は認証情報同様に扱い、docsやVaultに平文で残さない |
-| 3秒受付 | doPostは即200、重い処理はしない | Slack公式：3秒超過で最大3回・約1分間隔の再送。event_idは再送でも同じ値 → 重複はGAS側で吸収できるため、3秒を必達目標にせず「たまに超過しても自己修復する」設計にした |
+| 3秒受付 | doPostは即200、重い処理はしない | Slack公式：3秒超過で最大3回・約1分間隔の再送。event_idは再送でも同じ値 → 重複はGAS側で吸収できるため、3秒を必達目標にせず「たまに超過しても自己修復する」設計にした。**2026-09-28実機確認：Slack公式Events APIドキュメントに「3秒以内の200を探して301/302リダイレクトを最大2回まで追従する」と明記あり、GASのdoPost→302→script.googleusercontent.com経由の応答方式と両立することを確認した** |
 | GASのコールドスタート遅延 | 未検証 | 実測情報が見つからなかった。3秒超過時はSlack再送に頼る設計のため、超過自体は致命的ではない |
+| **GAS Webアプリは例外時も常に200を返す（2026-09-28実機確認）** | doPost内の失敗は必ず自前で捕まえ、本人へ通知する。「例外を投げれば非200になりSlackが再送する」という当初の想定は誤りだった | curlで`event_id`欠落を送信し実測：スクリプト内で`throw`しても応答は常にHTTP 200（本文にGASのエラーページが載るだけ）。Slackは2xx応答として扱い再送しない。`enqueueHttpEvent_`の失敗を`doPost`内でtry/catchし、`HTTP_LAST_ENQUEUE_ERROR`スクリプトプロパティへの記録とメール通知を追加した（`gas/Http.js`修正、コミット62d7347） |
 | NotebookLM受け渡し | GAS→GitHub Actions(answer.yml)→Python(answer_once.py) | 既存のactions-clock.mdと同じdispatch/履歴照合パターンを流用。NotebookLM接続はCookie認証のPythonライブラリに依存したまま（既存のGitHub Secret NOTEBOOKLM_STORAGE_JSONを再利用、GCP Secret Managerは使わない） |
 | 採否の最終判断 | src/http_app/domain.pyのplan() | 既存Cloud HTTP案のために書かれ、bot.pyの実挙動（app_mentionは任意チャンネル、messageはAI_CHANNEL_IDの先頭発言のみ）と一致する。GAS側のhttpRelevant_は「明確な無関係（自分の発言・編集削除・空本文）」だけを間引く目安で、二重判定は許容する（間引きすぎより間引かなすぎの方が安全なため） |
 | 状態確認 | Actionsの結了状態だけを信じず、conversations.repliesで実返信を確認 | 2026-09-27のactions-clock実機試験で「送信後の本文一致判定でActionsがfailure」を経験済み。到着確認と終了判定を区別する教訓をそのまま踏襲 |
@@ -52,8 +53,8 @@ shirokuma-sec・obasan-quality・kuma-qaを並列実行し、BLOCKER1件（shiro
 - **WARN→修正**：NotebookLM失敗時の返信文言が、event種別に関わらず一律「回答の生成に失敗しました。」だった。既存bot.pyはapp_mentionのときだけ「…しばらくしてから再試行してください。」を付け足しており、その使い分けに合わせた。
 - **WARN→修正**：`httpRelevant_`の除外subtypeリストがsrc/http_app/domain.pyのplan()と食い違っていた（channel_topic/channel_purposeを含み、message_repliedを含まない）。plan()の除外集合に合わせ、GAS側の間引きがPython側の判断機会を奪わないようにした。
 - **確定拒否に429を追加**：既存gas/ActionsClock.jsのactionsClockDispatch_と同じ判定にそろえた（429は本来一時的な事象だが、上記のdispatched維持修正により429を確定拒否扱いにしなくても二重回答は起きない。ただし本人への気づきが10分早まるため残した）。
+- **shirokuma-secの「GAS Webアプリは例外時も常に200を返すのでは」という懸念→2026-09-28実機確認で的中、修正済み**：上記「決定事項」参照。設計レビューの時点では確証を得られず「未検証」としていたが、実機curlで再現し修正した。
 - **未修正のまま残した指摘（判断理由）**：
-  - shirokuma-secの「GAS Webアプリは例外時も常に200を返すのでは」という懸念：ウェブ検索では確証も反証も得られなかった（未検証）。この設計全体が「doPost内の例外→非200→Slack再送」に部分的に依存しているため、**本番投入前に実機で必ず確認する項目として下記に追加**した。
   - shirokuma-secの「署名なし公開エンドポイントがGitHub Actionsの起動量そのもの（費用・容量）を無制限に消費しうる」：なりすまし許容の本人判断はSlackへの誤投稿リスクに対するもので、Actions実行回数・GAS_HTTP_QUEUEの行数増加という別種のコストは本人が明示的に検討した範囲か不明。1周期5件/分という上限はあるが「歯止め」ではなく「上限まで確実に消費される」点を本人に明示する（下記「未着手」に追加）。実装（レート制限強化等）は本人の追加判断後に行う。
   - shirokuma-secの「doPost（低遅延）とtickHttpQueue（複数の外部HTTP呼び出しを伴う重い処理）が単一のLockServiceロックを共有している」：ロック競合時はdoPostが例外を投げてSlack再送に委ねる設計のため、event_id再送での自己修復は効く。GASにはこれ以上細かい粒度のロックがなく、現状の想定規模（小規模営業チームの単一チャンネル）では許容範囲と判断し、複雑化は避けた。
   - obasan-qualityの「画像添付を無視している」：src/ai_assistant.pyのAIAssistant.answer()はNotebookLM経路では画像パラメータを一切参照しない（既存bot.pyが渡していても無視される）。既存Socket Mode本番と機能的に同じであり、意図的な簡略化として記載するに留めた。
@@ -76,34 +77,36 @@ Slack公式仕様：Socket Modeを有効にしている間、そのアプリの�
 - `scripts/answer_once.py`：`src/http_app/domain.py`のplan()で採否判定、`src/ai_assistant.py`のAIAssistant.answer()でNotebookLM回答、Slackへ返信。app_mentionのときだけ既存bot.pyと同じ「回答を生成中...」を先に出す（AIチャンネルの自動応答では出さない、既存の使い分けを踏襲）。本文が空のapp_mentionには既存と同じ案内文を返す。NotebookLM失敗時の文言も既存bot.pyと同じくevent種別で使い分ける（app_mentionは「…しばらくしてから再試行してください。」を付ける、AIチャンネルの自動応答は付けない）。新しいUXは増やしていない。
 - テスト：`tests/gas-http.test.cjs`（Node、18件）、`tests/test_answer_once.py`（Python、13件）。既存テスト（Node87件・Python33件、tests/test_http_app.pyはローカルにflask未導入のため対象外＝今回変更前から発生している環境依存の欠落で新規のリグレッションではない）は全て通過。
 
-## 進捗（2026-09-28）
+## 進捗（2026-09-28、実機まで完了した範囲）
 
 - **GitHub設定は完了**：`vars.OWNER_USER_ID=U03JFKXG6C8`・`vars.OWNER_DM_ID=D0B87Q9U54G`を設定済み（`HTTP_ANSWER_OWNER_ONLY`は未設定のままでworkflow側の既定値`true`が効く）。
-- **GAS本番プロジェクトへのコード反映は完了**：`sales-qa-bot GAS移行準備`プロジェクト（本番、`ENABLED=true`稼働中を確認済み）に`Http.gs`を新規追加・保存済み。既存の`GOOGLE_SPREADSHEET_ID`・`BOT_USER_ID`・`SLACK_READ_TOKEN`・`ACTIONS_CLOCK_TOKEN`・`HEALTH_EMAIL`スクリプトプロパティは全て既存流用でそのまま使える（新規設定不要と確認済み）。
-- **`GAS_HTTP_QUEUE`シートの作成は完了**：`prepareHttpQueue()`関数の実行に頼らず、対象スプレッドシートで直接シートタブを追加して代替した（下記の理由）。
-- **ここで停止した理由（2点、いずれも本人操作が必要）**：
-  1. Apps Scriptエディタの「実行」ボタンに再現性のある不具合があり、関数選択ドロップダウンやコードカーソル位置に関わらず、常に一番上の`doPost`が実行される（6通り以上の操作方法を試したが直らなかった）。そのため`prepareHttpQueue()`・`installHttpQueue()`・`tickHttpQueue()`をエディタから手動実行できなかった。
-  2. スクリプトプロパティ（`HTTP_QUEUE_ENABLED`）への書き込みを、Claude Code側の自動判定が「危険な操作」としてブロックした（理由の詳細は開示されない仕様）。これ以上同じ結果を別の方法で狙うのは避けている。
-- **残っている本人操作**（上記2つの制約のため、この3点は本人が直接操作する必要がある）：
-  1. Apps Scriptの「プロジェクトの設定」で`HTTP_QUEUE_ENABLED`＝`true`を追加保存。
-  2. Apps Scriptエディタで`Http.gs`を開き、関数`installHttpQueue`を選んで実行（1分ごとの巡回トリガーを登録。手動でTriggersページから`tickHttpQueue`を毎分実行するよう追加しても同じ）。
-  3. デプロイ＞新しいデプロイ＞種類「ウェブアプリ」で、アクセス権限「全員（匿名を含む）」としてデプロイし、発行されるURLを控える（このURLは認証情報と同様に扱い、チャット・Vault・リポジトリに平文で残さない）。
+- **GAS本番プロジェクトへのコード反映・デプロイ・有効化まで完了**：`sales-qa-bot GAS移行準備`プロジェクト（本番、`ENABLED=true`稼働中）に`Http.gs`を追加。本人が`HTTP_QUEUE_ENABLED=true`の保存・`installHttpQueue`の実行（`tickHttpQueue`の1分毎トリガー登録を確認済み）・Web Appデプロイ（アクセス権限「全員」、バージョン3まで反映）を完了。既存の`GOOGLE_SPREADSHEET_ID`・`BOT_USER_ID`・`SLACK_READ_TOKEN`・`ACTIONS_CLOCK_TOKEN`・`HEALTH_EMAIL`スクリプトプロパティは全て既存流用（新規設定不要）。
+- **`GAS_HTTP_QUEUE`シートの作成は完了**：`prepareHttpQueue()`の代わりに対象スプレッドシートで直接シートタブを追加した。
+- **実機テストで検証・修正した事実**：
+  1. **curlでのPOSTは`-X POST`を明示すると`-L`のリダイレクト追従が壊れる**（curl側の癖。`-d`だけでPOSTと判断させれば正しく追従する）。これを踏まえて再検証し、doPostが実際にSlackの302越しに正しく動くことを確認した。
+  2. **GAS Webアプリは例外時も常にHTTP 200を返す**ことを実機で確認し、`doPost`の失敗処理を修正済み（上記「決定事項」参照、コミット62d7347）。
+  3. **`workflow_dispatch`はワークフローファイルがリポジトリのデフォルトブランチ（main）に存在しないとGitHub側に認識されない。** `answer.yml`はslack-httpブランチにしかなく未登録だったため、GASからのdispatchはGitHub API 404→`rejected`扱いになった（実機テスト用のダミー行1件がこの状態で`GAS_HTTP_QUEUE`に残っている。実害のないテストデータなので削除不要）。
+- **mainへの反映が1点だけ必要（本人操作）**：`answer.yml`をmainへ登録する必要があるが、**mainブランチへのpushはClaude Code側の自動判定が「本番デプロイ」としてブロックする。** 代わりにmain相当のレビュー用ブランチ`register-answer-workflow`（`.github/workflows/answer.yml`だけを追加した1コミット、内容はslack-httpと同一）をpush済み。本人が次のいずれかで取り込んでください：
+  - GitHub上で`register-answer-workflow`→`main`のPRを作成してマージする（push時にURLが表示されている）
+  - もしくはローカルで`git checkout main && git merge register-answer-workflow && git push origin main`
+  - このファイルはworkflow_dispatch専用で、GASからの明示的な起動以外では何も実行しない。bot.yml・auth-refresh.yml等mainの既存スケジュール動作には影響しない。
+- **登録後にやること**：`GAS_HTTP_QUEUE`へ新しい模擬event（またはowner DMでの実試験）を送り、`tickHttpQueue`がanswer.ymlを起動→NotebookLM実回答→本人DMへの返信→`done`状態への確定、までの通しを確認する。
 
 ## 未着手・本人操作待ち（上記の続き）
 
-1. ~~GitHub設定~~ → 完了（上記参照）。
-2. ~~GAS設定（シート作成）~~ → 完了。残るデプロイ・トリガー登録・有効化は上記「本人操作」参照。
-3. **実機で必ず確認する項目（本番投入前）**：
-   - **doPost内で例外を投げたとき、Slackから見て実際に非200が届くか。** ウェブ検索では「常に200」「未捕捉例外は500になる」の両方の情報があり確証を得られなかった。ここが崩れていると「曖昧な内部障害はSlack再送に任せる」という設計全体の前提が崩れ、イベントが静かに失われる。
-   - 3秒受付の実測、GASコールドスタート遅延の実測。
-4. **試験**：本人DM限定（OWNER_ONLY=true）で、別Slackアプリ経由の実配信 or 模擬event_callbackペイロードの直接POSTで通しを確認。
-5. **なりすまし許容の実害範囲を再確認**：本人が明示判断した「Slackへの誤投稿」以外に、署名なし公開URLは知る者が誰でもGitHub Actionsを起動できてしまう（1周期5件/分の上限はあるが「歯止め」ではなく「上限まで確実に消費されうる」）。Actions実行回数・GAS_HTTP_QUEUEシートの行数増加という副次コストも許容範囲か、本番投入前に一度本人に確認する。
-6. **本番切替**：試験が済むまでSocket Modeは変更しない。切替する場合も本人の明示指示後、docs/slack-http.mdの「本番の受信先を変えるとき」に準じた手順（旧Bot停止確認→Request URL変更→検証）を新設計向けに書き直す。
+1. ~~GitHub設定~~ → 完了。
+2. ~~GAS設定（シート作成・有効化・デプロイ）~~ → 完了（上記参照）。
+3. **`answer.yml`のmain登録** → 本人操作待ち（上記参照）。登録後にGAS→GitHub Actionsの通しが初めて成功する。
+4. **3秒受付の実測、GASコールドスタート遅延の実測** → 上記のcurl検証で機能面は確認できたが、レイテンシの定量測定は未実施。
+5. **試験**：`answer.yml`登録後、本人DM限定（OWNER_ONLY=true）で模擬event_callback送信 or 別Slackアプリ経由の実配信による通しを確認する。
+6. **なりすまし許容の実害範囲を再確認**：本人が明示判断した「Slackへの誤投稿」以外に、署名なし公開URLは知る者が誰でもGitHub Actionsを起動できてしまう（1周期5件/分の上限はあるが「歯止め」ではなく「上限まで確実に消費されうる」）。Actions実行回数・GAS_HTTP_QUEUEシートの行数増加という副次コストも許容範囲か、本番投入前に一度本人に確認する。
+7. **本番切替**：試験が済むまでSocket Modeは変更しない。切替する場合も本人の明示指示後、docs/slack-http.mdの「本番の受信先を変えるとき」に準じた手順（旧Bot停止確認→Request URL変更→検証）を新設計向けに書き直す。
 
 ## 根拠
 
 - [Slack Events APIの受付期限・再送](https://docs.slack.dev/apis/events-api/)
 - [Slack署名検証](https://docs.slack.dev/authentication/verifying-requests-from-slack/)
 - [Socket Modeの使用（HTTP配信との排他）](https://docs.slack.dev/apis/events-api/using-socket-mode/)
+- [GAS Webアプリの302リダイレクトとcurlの落とし穴（実機で再現した事象の背景）](https://dev.to/googleworkspace/youre-probably-using-curl-wrong-with-your-google-apps-script-web-app-1ed8)
 - ローカル：gas/Http.js、gas/ActionsClock.js（dispatch/履歴照合パターンの流用元）、src/http_app/domain.py、src/ai_assistant.py、scripts/owner_dm_smoke.py（answer_once.pyの雛形）、.github/workflows/auth-refresh.yml・bot.yml（answer.ymlの雛形）。
 - 前回調査：docs/gas-without-gcp.md、docs/slack-http.md（Cloud HTTP案、今回は不採用のまま）。
