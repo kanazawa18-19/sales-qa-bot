@@ -84,9 +84,20 @@ test('同じevent_idは二重に積まない（Slack再送対策）', () => {
   post(x, okEvent); post(x, okEvent);
   assert.equal(x.sheets.GAS_HTTP_QUEUE._data.length, 1);
 });
-test('event_id欠落は例外を投げてSlackの再送に委ねる', () => {
-  const x = setup({}, undefined, { GAS_HTTP_QUEUE: makeSheet() });
-  assert.throws(() => post(x, { type: 'event_callback', event: { type: 'message', channel: 'C1', ts: '1.1', text: 'x' } }), /HTTP_EVENT_ID_MISSING/);
+test('event_id欠落はSlackへ200を返しつつ、記録と通知を残す（GASは例外時も200を返すため再送に頼れない）', () => {
+  const x = setup({ HEALTH_EMAIL: 'owner@example.test' }, undefined, { GAS_HTTP_QUEUE: makeSheet() });
+  const out = post(x, { type: 'event_callback', event: { type: 'message', channel: 'C1', ts: '1.1', text: 'x' } });
+  assert.equal(out._text, '');
+  assert.match(x.p.HTTP_LAST_ENQUEUE_ERROR, /HTTP_EVENT_ID_MISSING/);
+  assert.equal(x.emails.length, 1);
+});
+test('ロック競合など結果不明な内部障害も200を返しつつ通知する', () => {
+  const x = setup({ HEALTH_EMAIL: 'owner@example.test' }, undefined, { GAS_HTTP_QUEUE: makeSheet() });
+  x.ctx.LockService.getScriptLock = () => ({ tryLock: () => false, releaseLock() {} });
+  const out = post(x, okEvent);
+  assert.equal(out._text, '');
+  assert.match(x.p.HTTP_LAST_ENQUEUE_ERROR, /HTTP_QUEUE_BUSY/);
+  assert.equal(x.emails.length, 1);
 });
 test('無効化中はtickが通信しない', () => {
   const x = setup({}, undefined, { GAS_HTTP_QUEUE: makeSheet() });

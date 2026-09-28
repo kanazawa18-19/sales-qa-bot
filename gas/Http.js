@@ -89,6 +89,9 @@ function enqueueHttpEvent_(body) {
     ]);
   } finally { lock.releaseLock(); }
 }
+// 実機確認済み（2026-09-28）：GAS Webアプリはスクリプト内で例外が起きてもHTTPステータスは常に200を返す。
+// 「例外を投げれば非200になりSlackが再送する」は成立しない。したがって内部障害はここで必ず捕まえ、
+// 本人へ通知したうえで200を返す（Slackへは失敗を伝える手段がなく、再送にも頼れない）。
 function doPost(e) {
   var body;
   try { body = JSON.parse((e.postData || {}).contents || '{}'); }
@@ -97,8 +100,11 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ challenge: body.challenge })).setMimeType(ContentService.MimeType.JSON);
   }
   if (body.type !== 'event_callback') return ContentService.createTextOutput('');
-  // ここで例外を投げると非200になりSlackが再送する。曖昧な内部障害は再送に任せてよい。
-  enqueueHttpEvent_(body);
+  try { enqueueHttpEvent_(body); }
+  catch (err) {
+    httpProps_().setProperty('HTTP_LAST_ENQUEUE_ERROR', (err.message || 'UNKNOWN') + ' ' + new Date().toISOString());
+    httpNotice_('受信エラー', '直接受信の取り込みに失敗し、この1件は保存できていません。\n' + (err.message || 'UNKNOWN') + '\nevent_id=' + (body.event_id || ''));
+  }
   return ContentService.createTextOutput('');
 }
 function httpDispatchRow_(row, index, sheet) {
