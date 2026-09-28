@@ -1,0 +1,75 @@
+name: Answer One Slack Question
+
+run-name: ${{ format('QA回答 {0}', inputs.request_id) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: GAS直接受信キューの照合ID
+        type: string
+        required: true
+      event_id:
+        description: Slack event_id（監査用）
+        type: string
+        default: ""
+      channel:
+        type: string
+        required: true
+      user:
+        type: string
+        default: ""
+      ts:
+        type: string
+        required: true
+      thread_ts:
+        type: string
+        default: ""
+      event_type:
+        type: string
+        default: "message"
+      text:
+        type: string
+        default: ""
+      team_id:
+        description: Slackペイロードのteam_id（本人環境との照合用。署名検証はしていない）
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  # 同じ質問の二重dispatchだけを直列化する。別の質問は並行して答えてよい。
+  group: sales-qa-answer-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  answer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: NotebookLMで回答しSlackへ返信
+        run: python scripts/answer_once.py
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+          SLACK_TEAM_ID: ${{ inputs.team_id }}
+          SLACK_CHANNEL: ${{ inputs.channel }}
+          SLACK_USER: ${{ inputs.user }}
+          SLACK_TS: ${{ inputs.ts }}
+          SLACK_THREAD_TS: ${{ inputs.thread_ts }}
+          SLACK_EVENT_TYPE: ${{ inputs.event_type }}
+          SLACK_TEXT: ${{ inputs.text }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          AI_CHANNEL_ID: ${{ secrets.AI_CHANNEL_ID }}
+          OWNER_ONLY: ${{ vars.HTTP_ANSWER_OWNER_ONLY || 'true' }}
+          OWNER_USER_ID: ${{ vars.OWNER_USER_ID }}
+          OWNER_DM_ID: ${{ vars.OWNER_DM_ID }}
+          NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+          NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
