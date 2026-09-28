@@ -76,10 +76,23 @@ Slack公式仕様：Socket Modeを有効にしている間、そのアプリの�
 - `scripts/answer_once.py`：`src/http_app/domain.py`のplan()で採否判定、`src/ai_assistant.py`のAIAssistant.answer()でNotebookLM回答、Slackへ返信。app_mentionのときだけ既存bot.pyと同じ「回答を生成中...」を先に出す（AIチャンネルの自動応答では出さない、既存の使い分けを踏襲）。本文が空のapp_mentionには既存と同じ案内文を返す。NotebookLM失敗時の文言も既存bot.pyと同じくevent種別で使い分ける（app_mentionは「…しばらくしてから再試行してください。」を付ける、AIチャンネルの自動応答は付けない）。新しいUXは増やしていない。
 - テスト：`tests/gas-http.test.cjs`（Node、18件）、`tests/test_answer_once.py`（Python、13件）。既存テスト（Node87件・Python33件、tests/test_http_app.pyはローカルにflask未導入のため対象外＝今回変更前から発生している環境依存の欠落で新規のリグレッションではない）は全て通過。
 
-## 未着手・本人操作待ち
+## 進捗（2026-09-28）
 
-1. **GitHub設定**：`vars.HTTP_ANSWER_OWNER_ONLY`（既定true）・`vars.OWNER_USER_ID`・`vars.OWNER_DM_ID`（repository variables、非シークレットのSlack ID）。既存`secrets.AI_CHANNEL_ID`・`secrets.SLACK_BOT_TOKEN`・`secrets.NOTEBOOKLM_STORAGE_JSON`は追加設定不要。GASの`ACTIONS_CLOCK_TOKEN`・`BOT_USER_ID`・`SLACK_READ_TOKEN`スクリプトプロパティも既存流用で新規設定不要（新しく要るのは`GOOGLE_SPREADSHEET_ID`のみ、これも既存pollSalesQaと同じ値）。
-2. **GAS設定**：`prepareHttpQueue()`実行→シート作成確認→Web Appとしてデプロイ（アクセス権限「全員（匿名を含む）」、2026-09-28本人確認済み）→`HTTP_QUEUE_ENABLED=true`→`installHttpQueue()`。
+- **GitHub設定は完了**：`vars.OWNER_USER_ID=U03JFKXG6C8`・`vars.OWNER_DM_ID=D0B87Q9U54G`を設定済み（`HTTP_ANSWER_OWNER_ONLY`は未設定のままでworkflow側の既定値`true`が効く）。
+- **GAS本番プロジェクトへのコード反映は完了**：`sales-qa-bot GAS移行準備`プロジェクト（本番、`ENABLED=true`稼働中を確認済み）に`Http.gs`を新規追加・保存済み。既存の`GOOGLE_SPREADSHEET_ID`・`BOT_USER_ID`・`SLACK_READ_TOKEN`・`ACTIONS_CLOCK_TOKEN`・`HEALTH_EMAIL`スクリプトプロパティは全て既存流用でそのまま使える（新規設定不要と確認済み）。
+- **`GAS_HTTP_QUEUE`シートの作成は完了**：`prepareHttpQueue()`関数の実行に頼らず、対象スプレッドシートで直接シートタブを追加して代替した（下記の理由）。
+- **ここで停止した理由（2点、いずれも本人操作が必要）**：
+  1. Apps Scriptエディタの「実行」ボタンに再現性のある不具合があり、関数選択ドロップダウンやコードカーソル位置に関わらず、常に一番上の`doPost`が実行される（6通り以上の操作方法を試したが直らなかった）。そのため`prepareHttpQueue()`・`installHttpQueue()`・`tickHttpQueue()`をエディタから手動実行できなかった。
+  2. スクリプトプロパティ（`HTTP_QUEUE_ENABLED`）への書き込みを、Claude Code側の自動判定が「危険な操作」としてブロックした（理由の詳細は開示されない仕様）。これ以上同じ結果を別の方法で狙うのは避けている。
+- **残っている本人操作**（上記2つの制約のため、この3点は本人が直接操作する必要がある）：
+  1. Apps Scriptの「プロジェクトの設定」で`HTTP_QUEUE_ENABLED`＝`true`を追加保存。
+  2. Apps Scriptエディタで`Http.gs`を開き、関数`installHttpQueue`を選んで実行（1分ごとの巡回トリガーを登録。手動でTriggersページから`tickHttpQueue`を毎分実行するよう追加しても同じ）。
+  3. デプロイ＞新しいデプロイ＞種類「ウェブアプリ」で、アクセス権限「全員（匿名を含む）」としてデプロイし、発行されるURLを控える（このURLは認証情報と同様に扱い、チャット・Vault・リポジトリに平文で残さない）。
+
+## 未着手・本人操作待ち（上記の続き）
+
+1. ~~GitHub設定~~ → 完了（上記参照）。
+2. ~~GAS設定（シート作成）~~ → 完了。残るデプロイ・トリガー登録・有効化は上記「本人操作」参照。
 3. **実機で必ず確認する項目（本番投入前）**：
    - **doPost内で例外を投げたとき、Slackから見て実際に非200が届くか。** ウェブ検索では「常に200」「未捕捉例外は500になる」の両方の情報があり確証を得られなかった。ここが崩れていると「曖昧な内部障害はSlack再送に任せる」という設計全体の前提が崩れ、イベントが静かに失われる。
    - 3秒受付の実測、GASコールドスタート遅延の実測。
