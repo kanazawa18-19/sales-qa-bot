@@ -59,3 +59,42 @@ class FailureCodeTests(unittest.TestCase):
         with patch.dict(sys.modules, {'notebooklm': module}), patch.dict(sync.os.environ, {'NOTEBOOKLM_STORAGE_JSON': '{}', 'NOTEBOOKLM_NOTEBOOK_ID': 'notebook'}):
             self.assertEqual(sync.main(), 1)
         self.assertFalse(Path(factory.call_args.kwargs['path']).exists())
+
+
+class SdkLoggingTests(unittest.TestCase):
+    def test_import_logging_reset_cannot_expose_sdk_exception(self):
+        import builtins
+        import contextlib
+        import io
+        import logging
+        from unittest.mock import Mock
+        sdk = logging.getLogger('notebooklm')
+        child = logging.getLogger('notebooklm._rpc_executor')
+        saved = (sdk.level, sdk.handlers[:], sdk.propagate, child.level)
+        original_import = builtins.__import__
+        output = io.StringIO()
+
+        def factory(**kwargs):
+            child.setLevel(logging.ERROR)
+            child.error('private-sdk-exception')
+            raise RuntimeError('private-sdk-exception')
+
+        def importing(name, *args, **kwargs):
+            if name == 'notebooklm':
+                sdk.setLevel(logging.WARNING)
+                sdk.handlers[:] = [logging.StreamHandler()]
+                sdk.propagate = True
+                return SimpleNamespace(NotebookLMClient=SimpleNamespace(from_storage=Mock(side_effect=factory)))
+            return original_import(name, *args, **kwargs)
+
+        try:
+            with contextlib.redirect_stderr(output), patch.object(builtins, '__import__', side_effect=importing), patch.dict(sync.os.environ, {'NOTEBOOKLM_STORAGE_JSON': '{}', 'NOTEBOOKLM_NOTEBOOK_ID': 'notebook'}), self.assertLogs(sync.logger) as own_logs:
+                self.assertEqual(sync.main(), 1)
+            self.assertNotIn('private-sdk-exception', output.getvalue())
+            self.assertNotIn('private-sdk-exception', str(own_logs.output))
+            self.assertTrue(any('SOURCE_SYNC_FAILED' in line for line in own_logs.output))
+        finally:
+            sdk.setLevel(saved[0])
+            sdk.handlers[:] = saved[1]
+            sdk.propagate = saved[2]
+            child.setLevel(saved[3])

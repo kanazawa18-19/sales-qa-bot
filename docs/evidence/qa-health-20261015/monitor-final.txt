@@ -1,0 +1,50 @@
+{
+  "checkedAt": "2026-10-15T04:53:20.761126+00:00",
+  "errors": [],
+  "state": {
+    "schema": 1,
+    "observedAt": "2026-10-15T04:52:48.187Z",
+    "enabled": true,
+    "clockEnabled": true,
+    "pollTriggers": 1,
+    "clockTriggers": 1,
+    "lastRun": "2026-10-15T04:50:00.773Z",
+    "runBudgetSeconds": 90,
+    "lastSyncVerified": "2026-10-15T04:49:58.918Z",
+    "deepSnapshot": 1792012714.768,
+    "recentSnapshot": 0,
+    "lastRecentCycle": "2026-10-15T04:48:31.312Z",
+    "lastDeepCycle": "2026-10-14T20:49:08.666Z",
+    "health": {
+      "status": "ok",
+      "started": "2026-10-15T04:48:30.451Z",
+      "durationMs": 90591
+    },
+    "clock": {
+      "ok": true,
+      "checkedAt": "2026-10-15T04:52:35.506Z",
+      "code": null,
+      "lastAuthSuccess": "2026-10-15T04:51:03Z",
+      "elapsedMs": 12333,
+      "monitor": {
+        "firstRequestedAt": "2026-10-15T04:50:47.038Z",
+        "lastSuccess": "2026-10-15T04:51:03Z",
+        "lastCompleted": "2026-10-15T04:51:03Z",
+        "pendingSince": null,
+        "pendingState": null
+      },
+      "sync": {
+        "firstRequestedAt": "2026-10-15T04:50:50.663Z",
+        "lastSuccess": "2026-10-15T03:59:28Z",
+        "lastCompleted": "2026-10-15T03:59:28Z",
+        "pendingSince": null,
+        "pendingState": null
+      }
+    },
+    "daily": {
+      "startedAt": 1791992910712,
+      "ms": 1325074
+    },
+    "dailyLimitSeconds": 14400
+  }
+}

@@ -45,6 +45,13 @@ async def refresh_sources(client, notebook_id):
 
 async def sync():
     from notebooklm import NotebookLMClient
+    # SDKはimport時に独自handlerとWARNINGを再設定するため、import後に抑制する。
+    # 子loggerからの伝播とrootへの二重出力も止め、安全な自前の結果だけを残す。
+    for name in ('notebooklm', 'httpx', 'httpcore'):
+        sdk_logger = logging.getLogger(name)
+        sdk_logger.setLevel(logging.CRITICAL + 1)
+        sdk_logger.handlers[:] = [logging.NullHandler()]
+        sdk_logger.propagate = False
     with tempfile.TemporaryDirectory() as directory:
         storage = Path(directory) / 'storage.json'
         storage.write_text(os.environ['NOTEBOOKLM_STORAGE_JSON'])
@@ -59,8 +66,6 @@ async def sync():
 def main():
     logging.basicConfig(level=logging.WARNING, format='%(levelname)s %(message)s')
     logger.setLevel(logging.INFO)
-    logging.getLogger('notebooklm').setLevel(logging.CRITICAL)
-    logging.getLogger('httpx').setLevel(logging.CRITICAL)
     try:
         asyncio.run(sync())
         return 0

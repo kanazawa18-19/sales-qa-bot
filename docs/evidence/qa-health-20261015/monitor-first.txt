@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-15T04:50:58.259028+00:00",
+  "errors": [
+    "外部監視の成功が停滞または未確認"
+  ],
+  "state": {
+    "schema": 1,
+    "observedAt": "2026-10-15T04:50:54.262Z",
+    "enabled": true,
+    "clockEnabled": true,
+    "pollTriggers": 1,
+    "clockTriggers": 1,
+    "lastRun": "2026-10-15T04:50:00.773Z",
+    "runBudgetSeconds": 90,
+    "lastSyncVerified": "2026-10-15T04:49:58.918Z",
+    "deepSnapshot": 1792012714.768,
+    "recentSnapshot": 0,
+    "lastRecentCycle": "2026-10-15T04:48:31.312Z",
+    "lastDeepCycle": "2026-10-14T20:49:08.666Z",
+    "health": {
+      "status": "ok",
+      "started": "2026-10-15T04:48:30.451Z",
+      "durationMs": 90591
+    },
+    "clock": {
+      "ok": false,
+      "checkedAt": "2026-10-15T04:50:37.132Z",
+      "code": "CLOCK_MONITOR_STALE",
+      "lastAuthSuccess": "2026-10-15T04:46:05Z",
+      "elapsedMs": 16002,
+      "monitor": {
+        "firstRequestedAt": "2026-10-15T04:50:47.038Z",
+        "lastSuccess": "2026-10-15T00:37:00Z",
+        "lastCompleted": "2026-10-15T00:37:00Z",
+        "pendingSince": "2026-10-15T04:50:47.145Z",
+        "pendingState": "accepted"
+      },
+      "sync": {
+        "firstRequestedAt": "2026-10-15T04:50:50.663Z",
+        "lastSuccess": "2026-10-15T03:59:28Z",
+        "lastCompleted": "2026-10-15T03:59:28Z",
+        "pendingSince": "2026-10-15T04:50:50.814Z",
+        "pendingState": "accepted"
+      }
+    },
+    "daily": {
+      "startedAt": 1791992910712,
+      "ms": 1325074
+    },
+    "dailyLimitSeconds": 14400
+  }
+}
