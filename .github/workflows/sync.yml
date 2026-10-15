@@ -36,6 +36,9 @@ jobs:
         run: cd src && python sync.py
         env:
           NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
+          # 本人指定：旧GrowthCube（新PDFへ交代）とホテルラボ・レビューは更新しない。
+          # 回答用の資料は削除せず、更新処理にだけ適用する。
+          NOTEBOOKLM_SYNC_EXCLUDED_SOURCE_IDS: 9bb1dabd-60bc-4743-8975-f5f204da2050,cd12096c-8bb2-427f-b2de-f85f7e4bd1ec
           NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
 
       - name: 資料更新の失敗を本人へ通知

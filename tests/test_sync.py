@@ -15,8 +15,16 @@ class SyncTests(unittest.IsolatedAsyncioTestCase):
         sources = [SimpleNamespace(id=str(i), drive_document_id='drive' if i < 3 else None) for i in range(6)]
         client = SimpleNamespace(sources=SimpleNamespace(list=AsyncMock(return_value=sources), refresh=AsyncMock(return_value=None)))
         counts = await sync.refresh_sources(client, 'notebook')
-        self.assertEqual(counts, dict(total=6, refreshed=3, skipped=3, failed=0))
+        self.assertEqual(counts, dict(total=6, refreshed=3, skipped=3, excluded=0, failed=0))
         self.assertEqual(client.sources.refresh.await_count, 3)
+
+    async def test_exclusion_skips_only_requested_ids_without_deleting_sources(self):
+        sources = [SimpleNamespace(id=id_, drive_document_id='drive') for id_ in ('old-growth', 'hotel-review', 'new-growth')]
+        client = SimpleNamespace(sources=SimpleNamespace(list=AsyncMock(return_value=sources), refresh=AsyncMock(return_value=None), delete=AsyncMock()))
+        counts = await sync.refresh_sources(client, 'notebook', {'old-growth', 'hotel-review'})
+        self.assertEqual(counts, dict(total=3, refreshed=1, skipped=0, excluded=2, failed=0))
+        client.sources.refresh.assert_awaited_once_with('notebook', 'new-growth')
+        client.sources.delete.assert_not_awaited()
 
     async def test_partial_failure_count_and_safe_log(self):
         source = SimpleNamespace(id='source-id', drive_document_id='secret-drive-id')

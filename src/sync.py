@@ -23,10 +23,15 @@ def failure_code(error):
     return 'unknown'
 
 
-async def refresh_sources(client, notebook_id):
+async def refresh_sources(client, notebook_id, excluded_source_ids=()):
     sources = await client.sources.list(notebook_id)
-    counts = dict(total=len(sources), refreshed=0, skipped=0, failed=0)
+    excluded_source_ids = set(excluded_source_ids)
+    counts = dict(total=len(sources), refreshed=0, skipped=0, excluded=0, failed=0)
     for source in sources:
+        # 更新だけを除外する。資料の削除や回答で使う資料の選択は変更しない。
+        if source.id in excluded_source_ids:
+            counts['excluded'] += 1
+            continue
         if not hasattr(source, 'drive_document_id'):
             raise RuntimeError('SOURCE_METADATA_UNSUPPORTED')
         if not source.drive_document_id:
@@ -57,7 +62,8 @@ async def sync():
         storage.write_text(os.environ['NOTEBOOKLM_STORAGE_JSON'])
         storage.chmod(0o600)
         async with NotebookLMClient.from_storage(path=str(storage)) as client:
-            counts = await refresh_sources(client, os.environ['NOTEBOOKLM_NOTEBOOK_ID'])
+            excluded = {value.strip() for value in os.environ.get('NOTEBOOKLM_SYNC_EXCLUDED_SOURCE_IDS', '').split(',') if value.strip()}
+            counts = await refresh_sources(client, os.environ['NOTEBOOKLM_NOTEBOOK_ID'], excluded)
     if counts['failed']:
         raise RuntimeError('SOURCE_SYNC_PARTIAL_FAILURE')
     return counts
