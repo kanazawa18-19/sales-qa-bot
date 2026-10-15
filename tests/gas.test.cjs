@@ -869,3 +869,27 @@ test('QA記録専用では同期済み返信の候補走査を省略し次の親
  s=qa.step(s,io,config);s=qa.step(s,io,config);
  assert.equal(reads,1);assert.equal(syncs,1);assert.equal(s.thread,null);assert.equal(s.index,1);
 });
+
+test('同期内容が同じでも保存先を検証し、人手列を保持して不要なPATCHだけ省略する',()=>{
+ const f=adapterFixture();let saved={}, patches=0, gets=0;
+ f.ctx.notion_=(c,path,body,method)=>{
+  if(path.endsWith('/query'))return {results:[{id:'page'}]};
+  if(method==='patch'){patches++;saved=body.properties;return {id:'page'};}
+  gets++;return {id:'page',properties:saved};
+ };
+ f.ctx.sync_(f.c,f.book,'CQ',f.messages,'300');
+ f.sheets.QA.data[1][1]='人手で直した質問';
+ f.ctx.sync_(f.c,f.book,'CQ',f.messages,'400');
+ assert.equal(patches,1);assert.ok(gets>=3);
+ assert.equal(f.sheets.QA.data[1][1],'人手で直した質問');
+ assert.equal(f.sheets.GAS_SYNC_STATE.data[0][1],'400');
+ assert.equal(f.sheets.GAS_SYNC_STATE.data[0][2],'COMPLETE');
+ saved['回答テキスト']={rich_text:[{text:{content:'外部で変更'}}]};
+ f.ctx.sync_(f.c,f.book,'CQ',f.messages,'500');assert.equal(patches,2);
+});
+test('同期先のアーカイブを成功にせずPENDINGを保持する',()=>{
+ const f=adapterFixture();f.ctx.sync_(f.c,f.book,'CQ',f.messages,'300');
+ f.ctx.notion_=()=>({id:'page',archived:true,properties:{}});
+ assert.throws(()=>f.ctx.sync_(f.c,f.book,'CQ',f.messages,'400'),/ARCHIVED/);
+ assert.equal(f.sheets.GAS_SYNC_STATE.data[0][2],'PENDING');
+});

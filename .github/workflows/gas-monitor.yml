@@ -1,9 +1,13 @@
 name: GAS 外部監視
+run-name: ${{ inputs.clock_request_id && format('GAS外部監視 {0}', inputs.clock_request_id) || 'GAS 外部監視' }}
 on:
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
+      clock_request_id:
+        type: string
+        default: ""
       notify:
         description: 本人DMへ通知する
         type: boolean
@@ -32,6 +36,7 @@ jobs:
             python scripts/gas_monitor.py
           fi
         env:
+          CLOCK_REQUEST_ID: ${{ inputs.clock_request_id }}
           SEND_NOTICE: ${{ github.event_name == 'schedule' || inputs.notify }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}

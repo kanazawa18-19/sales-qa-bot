@@ -19,8 +19,8 @@ test('停止既定では認証も通信も不要',()=>{const x=setup();assert.eq
 test('DM単発は試験ブランチだけ・定期トリガーなし・再実行拒否',()=>{const x=setup({ACTIONS_CLOCK_TOKEN:'dummy'},()=>response(204));x.ctx.runActionsClockOwnerSmoke();const p=JSON.parse(x.calls[0].options.payload);assert.equal(p.ref,'slack-http');assert.equal(p.inputs.owner_dm_smoke,true);assert.equal(p.inputs.clock_request_id,x.ctx.healthActionsClock().smoke.requestId);assert.equal(x.triggers.length,0);assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),/ALREADY/);});
 test('POST結果不明でも再送せず秘密値を出さない',()=>{const x=setup({ACTIONS_CLOCK_TOKEN:'dummy'},()=>{throw Error('secret');});assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),/CLOCK_TRANSPORT_UNKNOWN/);assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),/ALREADY/);assert.equal(x.calls.length,1);assert.equal(JSON.parse(x.props.ACTIONS_CLOCK_SMOKE_REQUEST).state,'unknown');});
 test('401/403/429/500を成功扱いしない',()=>{for(const code of [401,403,429,500]){const x=setup({ACTIONS_CLOCK_TOKEN:'dummy'},()=>response(code));assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),new RegExp('CLOCK_GITHUB_'+code));}});
-const enabled = {ACTIONS_CLOCK_ENABLED:'true',ACTIONS_CLOCK_MIGRATION_ACK:'true',ACTIONS_CLOCK_TOKEN:'dummy',HEALTH_EMAIL:'owner@example.test'};
-function api(url, options){if(options.method==='post')return response(204);if(url.includes('status=success'))return response(200,{workflow_runs:[{id:42,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}]});if(url.includes('status='))return response(200,{total_count:url.includes('bot.yml')&&url.includes('in_progress')?1:0,workflow_runs:url.includes('bot.yml')&&url.includes('in_progress')?[{head_branch:'main',status:'in_progress'}]:[]});return response(200,{workflow_runs:[{status:'completed',conclusion:'success',updated_at:new Date().toISOString()}]});}
+const enabled = {ACTIONS_CLOCK_MONITOR_REQUEST_AT:String(Date.now()),ACTIONS_CLOCK_SYNC_REQUEST_AT:String(Date.now()),ACTIONS_CLOCK_ENABLED:'true',ACTIONS_CLOCK_MIGRATION_ACK:'true',ACTIONS_CLOCK_TOKEN:'dummy',HEALTH_EMAIL:'owner@example.test'};
+function api(url, options){if(options.method==='post')return response(204);if(url.includes('status=success')||url.includes('status=completed'))return response(200,{workflow_runs:[{id:42,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}]});if(url.includes('status='))return response(200,{total_count:url.includes('bot.yml')&&url.includes('in_progress')?1:0,workflow_runs:url.includes('bot.yml')&&url.includes('in_progress')?[{head_branch:'main',status:'in_progress'}]:[]});return response(200,{workflow_runs:[{status:'completed',conclusion:'success',updated_at:new Date().toISOString()}]});}
 test('稼働中Botを起動せず認証更新だけ要求',()=>{const x=setup(enabled,api);assert.equal(x.ctx.tickActionsClock().ok,true);const posts=x.calls.filter(c=>c.options.method==='post');assert.equal(posts.length,1);assert.match(posts[0].url,/auth-refresh.yml\/dispatches$/);});
 test('未照合の要求は次周期で再送しない',()=>{const x=setup(enabled,api);x.ctx.tickActionsClock();x.ctx.tickActionsClock();assert.equal(x.calls.filter(c=>c.options.method==='post').length,1);});
 test('稼働中の認証更新があれば送らない',()=>{const x=setup(enabled,(u,o)=>u.includes('auth-refresh.yml')&&u.includes('status=in_progress')?response(200,{total_count:1,workflow_runs:[{}]}):api(u,o));x.ctx.tickActionsClock();assert.equal(x.calls.filter(c=>c.options.method==='post').length,0);});
@@ -47,3 +47,45 @@ test('開始は既存の鍵と通知先を保持し時計トリガー1件だけ�
 test('鍵または通知先未設定なら有効化しない',()=>{for(const props of [{},{ACTIONS_CLOCK_TOKEN:'dummy'}]){const x=setup(props);assert.throws(()=>x.ctx.startActionsClock(),/CONFIG_REQUIRED/);assert.notEqual(x.props.ACTIONS_CLOCK_ENABLED,'true');assert.equal(x.triggers.length,0);}});
 
 test('成功照合と保留照合は絞り込み条件のある別問い合わせを使う',()=>{const record={requestId:'test',requestedAt:new Date().toISOString()};const x=setup({...enabled,ACTIONS_CLOCK_AUTH_REQUEST:JSON.stringify(record)},(u,o)=>u.includes('event=workflow_dispatch')?response(200,{workflow_runs:[{display_title:'GAS認証更新 test'}]}):u.endsWith('branch=main&per_page=100')?response(200,{workflow_runs:[]}):api(u,o));assert.equal(x.ctx.tickActionsClock().ok,true);assert.equal(x.ctx.healthActionsClock().health.lastAuthRunId,42);assert.equal(x.calls.some(c=>c.url.includes('status=success&per_page=1')),true);const lookup=x.calls.find(c=>c.url.includes('event=workflow_dispatch'));assert.match(lookup.url,/created=%3E%3D/);assert.equal(lookup.options.headers['Cache-Control'],'no-cache');assert.notEqual(x.ctx.healthActionsClock().pendingAuthRequest.requestId,'test');assert.equal(x.calls.filter(c=>c.options.method==='post').length,1);});
+
+
+test('完全な履歴で10分経過・未完了ゼロなら不明要求を再要求できる',()=>{
+ const pending={requestId:'missing',state:'unknown',requestedAt:new Date(Date.now()-601000).toISOString()};
+ const x=setup({...enabled,ACTIONS_CLOCK_AUTH_REQUEST:JSON.stringify(pending)},(u,o)=>u.includes('event=workflow_dispatch')?response(200,{total_count:0,workflow_runs:[]}):api(u,o));
+ assert.equal(x.ctx.tickActionsClock().ok,true);
+ assert.equal(x.calls.filter(c=>c.options.method==='post').length,1);
+ assert.notEqual(JSON.parse(x.props.ACTIONS_CLOCK_AUTH_REQUEST).requestId,'missing');
+});
+test('不完全な履歴や未完了runがあれば古い不明要求も解除しない',()=>{
+ for(const incomplete of [true,false]){
+ const pending={requestId:'missing',state:'unknown',requestedAt:new Date(Date.now()-601000).toISOString()};
+ const x=setup({...enabled,ACTIONS_CLOCK_AUTH_REQUEST:JSON.stringify(pending)},(u,o)=>u.includes('event=workflow_dispatch')?response(200,{total_count:incomplete?1:0,workflow_runs:[]}):!incomplete&&u.includes('auth-refresh')&&u.includes('status=in_progress')?response(200,{total_count:1,workflow_runs:[{}]}):api(u,o));
+ x.ctx.tickActionsClock();assert.equal(JSON.parse(x.props.ACTIONS_CLOCK_AUTH_REQUEST).requestId,'missing');assert.equal(x.calls.filter(c=>c.options.method==='post').length,0);
+ }
+});
+test('時計から監視と資料更新を起動し同じ周期で再送しない',()=>{
+ const x=setup({...enabled,ACTIONS_CLOCK_MONITOR_REQUEST_AT:'0',ACTIONS_CLOCK_SYNC_REQUEST_AT:'0'},api);
+ x.ctx.tickActionsClock();x.ctx.tickActionsClock();
+ const posts=x.calls.filter(c=>c.options.method==='post');assert.equal(posts.length,3);
+ const monitor=posts.find(c=>c.url.includes('gas-monitor'));assert.equal(JSON.parse(monitor.options.payload).inputs.notify,'true');
+ assert.equal(posts.filter(c=>c.url.includes('sync.yml')).length,1);
+});
+
+test('監視完了の停滞と資料更新成功の停滞を正常としない',()=>{
+ for(const [workflow,code] of [['gas-monitor.yml','CLOCK_MONITOR_STALE'],['sync.yml','CLOCK_SYNC_STALE']]){
+ const x=setup(enabled,(u,o)=>u.includes(workflow)&&(u.includes('status=success')||u.includes('status=completed'))?response(200,{workflow_runs:[{status:'completed',conclusion:'success',updated_at:'2020-01-01T00:00:00Z'}]}):api(u,o));
+ assert.equal(x.ctx.tickActionsClock().code,code);assert.equal(x.ctx.healthActionsClock().health.ok,false);
+ }
+});
+test('初回要求だけに猶予を与え、再要求しても猶予を延長しない',()=>{
+ const x=setup(enabled,api);
+ assert.equal(x.ctx.actionsClockPeriodicFresh_({firstRequestedAt:new Date().toISOString(),lastSuccess:null},4500000),true);
+ assert.equal(x.ctx.actionsClockPeriodicFresh_({firstRequestedAt:'2020-01-01T00:00:00Z',lastSuccess:null},4500000),false);
+ assert.equal(x.ctx.actionsClockPeriodicFresh_({firstRequestedAt:new Date().toISOString(),lastSuccess:'2020-01-01T00:00:00Z'},4500000),false);
+});
+
+test('定期処理が期限前かつ保留なしなら未完了5状態の照会を省略する',()=>{
+ const x=setup(enabled,api);x.ctx.tickActionsClock();
+ const periodic=x.calls.filter(c=>c.url.includes('gas-monitor.yml')||c.url.includes('sync.yml'));
+ assert.equal(periodic.length,2);assert.ok(periodic.every(c=>c.url.includes('status=success')));
+});

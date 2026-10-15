@@ -1,12 +1,23 @@
 name: Sync NotebookLM Sources
+run-name: ${{ inputs.clock_request_id && format('GAS資料更新 {0}', inputs.clock_request_id) || 'Sync NotebookLM Sources' }}
 
 on:
   schedule:
     - cron: '0 */6 * * *'  # 6時間ごと
   workflow_dispatch:
+    inputs:
+      clock_request_id:
+        type: string
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: sales-qa-source-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -19,10 +30,20 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install notebooklm-py==0.8.5 requests==2.32.3
 
       - name: Sync NotebookLM sources
         run: cd src && python sync.py
         env:
           NOTEBOOKLM_NOTEBOOK_ID: ff4df3ed-ae9a-4684-a8d1-8b00a8833ba0
           NOTEBOOKLM_STORAGE_JSON: ${{ secrets.NOTEBOOKLM_STORAGE_JSON }}
+
+      - name: 資料更新の失敗を本人へ通知
+        if: ${{ failure() }}
+        run: |
+          PYTHONPATH=scripts python - <<'PYTHON'
+          from runtime_ops import notify, run_link
+          notify('Sales QA Bot：資料更新に失敗しました。対象資料または認証を確認してください。' + run_link())
+          PYTHON
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

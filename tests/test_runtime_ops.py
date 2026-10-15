@@ -11,9 +11,11 @@ spec.loader.exec_module(ops)
 
 class RuntimeTests(unittest.TestCase):
     def test_queued_secret_is_not_overwritten(self):
-        with patch.dict(ops.os.environ, {'GITHUB_RUN_ID': '123'}), patch.object(ops, 'github', side_effect=[{'updated_at': '2026-09-27T01:00:01Z'}, {'created_at': '2026-09-27T01:00:00Z'}]), patch.object(ops, 'previous_refresh_runs', return_value=[]), patch.object(ops, 'notify'), patch.object(ops.subprocess, 'run') as run:
+        with patch.dict(ops.os.environ, {'GITHUB_RUN_ID': '123'}), patch.object(ops, 'github', side_effect=[{'updated_at': '2026-09-27T01:00:01Z'}, {'created_at': '2026-09-27T01:00:00Z'}]), patch.object(ops, 'previous_refresh_runs', return_value=[]), patch.object(ops, 'notify') as notice, patch.object(ops.subprocess, 'run') as run:
             self.assertEqual(ops.refresh(), 1)
             run.assert_not_called()
+            self.assertIn("古い認証の上書きを防止", notice.call_args.args[0])
+            self.assertIn("次回更新で再試行", notice.call_args.args[0])
 
     def test_notification_failure_does_not_change_auth_success(self):
         old = '2026-09-01T00:00:00Z'

@@ -1,0 +1,59 @@
+2026-10-15 本番トリガー画面再確認
+sales-qa-bot GAS移行準備 のトリガーを編集
+実行する関数を選択
+pollSalesQa
+dryRunSalesQa
+prepareSalesQa
+installSalesQaTrigger
+healthSalesQa
+inspectQaProduction
+prepareQaProduction
+startQaProduction
+verifyQaProduction
+pauseQaProduction
+qaRecordingProgress
+continueQaInitialScan
+tickActionsClock
+startActionsClock
+installActionsClock
+stopActionsClock
+healthActionsClock
+runActionsClockOwnerSmoke
+inspectQaHeartbeat
+auditQaNotionDuplicates
+previewNotionDuplicateViews
+prepareNotionDuplicateViews
+verifyNotionDuplicateViews
+doPost
+tickHttpQueue
+prepareHttpQueue
+installHttpQueue
+stopHttpQueue
+healthHttpQueue
+デプロイ時に実行
+Head
+バージョン 3
+イベントのソースを選択
+時間主導型
+カレンダーから
+時間ベースのトリガーのタイプを選択
+特定の日時
+分ベースのタイマー
+時間ベースのタイマー
+日付ベースのタイマー
+週ベースのタイマー
+月ベースのタイマー
+時間の間隔を選択（分）
+1 分おき
+5 分おき
+10 分おき
+15 分おき
+30 分おき
+エラー通知設定
+add
+今すぐ通知を受け取る
+1 時間おきに通知を受け取る
+毎日通知を受け取る
+1 週間おきに通知を受け取る
+キャンセル
+保存

@@ -51,6 +51,44 @@ function actionsClockDispatch_(workflow, payload, key) {
   props.setProperty(key, JSON.stringify(record));
   return record;
 }
+// 完全な一覧と10分の猶予を揃えた要求だけを再試行可能にする。
+function actionsClockReconcile_(workflow, key, title, active) {
+  var props = actionsClockProps_(), pending = JSON.parse(props.getProperty(key) || 'null');
+  if (!pending) return null;
+  if (!pending.requestId || !isFinite(Date.parse(pending.requestedAt))) throw new Error('CLOCK_REQUEST_INVALID');
+  var since = new Date(Date.parse(pending.requestedAt) - 60000).toISOString();
+  var data = actionsClockGitHub_('/actions/workflows/' + workflow + '/runs?branch=main&event=workflow_dispatch&created=' + encodeURIComponent('>=' + since) + '&per_page=100');
+  if (!Array.isArray(data.workflow_runs)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
+  var matched = data.workflow_runs.some(function(r) {return r.display_title === title + pending.requestId;});
+  var complete = Number.isInteger(data.total_count) && data.total_count >= 0 && data.total_count <= 100 && data.workflow_runs.length === data.total_count;
+  if (matched || (complete && !active.length && Date.now() - Date.parse(pending.requestedAt) >= 600000)) {
+    props.deleteProperty(key); return null;
+  }
+  return pending;
+}
+function actionsClockPeriodic_(workflow, key, title, interval, inputs) {
+  var props = actionsClockProps_();
+  var pending = JSON.parse(props.getProperty(key) || 'null');
+  var due = Date.now() - Number(props.getProperty(key + '_AT') || 0) >= interval;
+  var active = pending || due ? actionsClockRuns_(workflow) : [];
+  if (!props.getProperty(key + '_FIRST_AT')) props.setProperty(key + '_FIRST_AT', new Date().toISOString());
+  if (pending) pending = actionsClockReconcile_(workflow, key, title, active);
+  if (!pending && !active.length && due) {
+    pending = actionsClockDispatch_(workflow, {ref:'main', inputs:inputs || {}}, key);
+    props.setProperty(key + '_AT', String(Date.parse(pending.requestedAt)));
+  }
+  var successes = actionsClockGitHub_('/actions/workflows/' + workflow + '/runs?branch=main&status=success&per_page=1').workflow_runs;
+  if (!Array.isArray(successes)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
+  var success = successes.find(function(r) {return r.status === 'completed' && r.conclusion === 'success';});
+  return {firstRequestedAt:props.getProperty(key + '_FIRST_AT'), lastSuccess:success ? success.updated_at : null, lastCompleted:success ? success.updated_at : null,
+    pendingSince:pending ? pending.requestedAt : null, pendingState:pending ? pending.state : null};
+}
+function actionsClockPeriodicFresh_(state, maxAge) {
+  var age = Date.now() - Date.parse(state.lastSuccess || state.firstRequestedAt);
+  var pendingAge = state.pendingSince ? Date.now() - Date.parse(state.pendingSince) : 0;
+  return isFinite(age) && age >= -60000 && age <= maxAge && isFinite(pendingAge) && pendingAge <= maxAge;
+}
+
 function actionsClockNotice_(health) {
   var props = actionsClockProps_(), email = props.getProperty('HEALTH_EMAIL');
   if (!email) throw new Error('CLOCK_HEALTH_EMAIL_REQUIRED');
@@ -59,6 +97,8 @@ function actionsClockNotice_(health) {
   if (props.getProperty('ACTIONS_CLOCK_NOTICE') !== tag && Date.now() - lastAt >= 3600000) {
     var reasons = {CLOCK_REQUEST_UNCONFIRMED: '認証更新の起動要求を10分以上照合できていません。',
       CLOCK_RECOVERY_UNCONFIRMED: '停止確認の起動要求を10分以上照合できていません。',
+      CLOCK_MONITOR_STALE: '外部監視の完了または保留要求が75分以上停滞しています。',
+      CLOCK_SYNC_STALE: '資料更新の成功または保留要求が8時間以上停滞しています。',
       CLOCK_BOT_NOT_RUNNING: '稼働中のBotを確認できません。待機中・復旧要求中の可能性もあります。',
       CLOCK_AUTH_STALE: '認証更新の最終成功から30分以上経過したか、成功を確認できません。'};
     var message = health.ok ? '認証更新の鮮度とBot稼働を確認しました。' :
@@ -88,42 +128,30 @@ function tickActionsClock() {
     var success = successes.find(function(r) {return r.status === 'completed' && r.conclusion === 'success';});
     health.lastAuthSuccess = success ? success.updated_at : null;
     health.lastAuthRunId = success ? success.id : null;
-    var pending = JSON.parse(props.getProperty('ACTIONS_CLOCK_AUTH_REQUEST') || 'null');
-    if (pending) {
-      var since = new Date(Date.parse(pending.requestedAt) - 60000).toISOString();
-      var history = actionsClockGitHub_('/actions/workflows/auth-refresh.yml/runs?branch=main&event=workflow_dispatch&created=' + encodeURIComponent('>=' + since) + '&per_page=100').workflow_runs;
-      if (!Array.isArray(history)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
-      health.authRequestHistoryCount = history.length;
-      if (history.some(function(r) {return r.display_title === 'GAS認証更新 ' + pending.requestId;})) {
-        props.deleteProperty('ACTIONS_CLOCK_AUTH_REQUEST'); pending = null;
-      }
-    }
+    var pending = actionsClockReconcile_('auth-refresh.yml', 'ACTIONS_CLOCK_AUTH_REQUEST', 'GAS認証更新 ', runs);
     if (!runs.length && !pending) {
       pending = actionsClockDispatch_('auth-refresh.yml', {ref: 'main'}, 'ACTIONS_CLOCK_AUTH_REQUEST');
       health.dispatched = true;
     }
     var botRuns = actionsClockRuns_('bot.yml');
     health.botActive = botRuns.some(function(r) {return r.head_branch === 'main' && r.status === 'in_progress';});
-    var recovery = JSON.parse(props.getProperty('ACTIONS_CLOCK_RECOVERY_REQUEST') || 'null');
-    if (recovery) {
-      var watchdogHistory = actionsClockGitHub_('/actions/workflows/bot-watchdog.yml/runs?branch=main&per_page=100').workflow_runs;
-      if (!Array.isArray(watchdogHistory)) throw new Error('CLOCK_RUN_LIST_UNCERTAIN');
-      if (watchdogHistory.some(function(r) {return r.display_title === 'GAS停止確認 ' + recovery.requestId;})) {
-        props.deleteProperty('ACTIONS_CLOCK_RECOVERY_REQUEST'); recovery = null;
-      }
-    }
+    var recovery = actionsClockReconcile_('bot-watchdog.yml', 'ACTIONS_CLOCK_RECOVERY_REQUEST', 'GAS停止確認 ', actionsClockRuns_('bot-watchdog.yml'));
     // 待機runもあれば触らない。復旧直前の再確認と実行枠の制御は既存watchdogが担当する。
     if (!botRuns.length && !recovery && !actionsClockRuns_('bot-watchdog.yml').length) {
       recovery = actionsClockDispatch_('bot-watchdog.yml', {ref: 'main'}, 'ACTIONS_CLOCK_RECOVERY_REQUEST');
       health.recoveryDispatched = true;
     }
+    health.monitor = actionsClockPeriodic_('gas-monitor.yml', 'ACTIONS_CLOCK_MONITOR_REQUEST', 'GAS外部監視 ', 1800000, {notify:'true'});
+    health.sync = actionsClockPeriodic_('sync.yml', 'ACTIONS_CLOCK_SYNC_REQUEST', 'GAS資料更新 ', 21600000);
     health.pendingRecoveryRequest = recovery;
     health.pendingAuthRequest = pending;
     if (recovery && Date.now() - Date.parse(recovery.requestedAt) >= 600000) health.code = 'CLOCK_RECOVERY_UNCONFIRMED';
     else if (pending && Date.now() - Date.parse(pending.requestedAt) >= 600000) health.code = 'CLOCK_REQUEST_UNCONFIRMED';
     else if (!health.botActive) health.code = 'CLOCK_BOT_NOT_RUNNING';
     else if (!success || Date.now() - Date.parse(success.updated_at) >= 1800000) health.code = 'CLOCK_AUTH_STALE';
-    health.ok = health.botActive && !!success && Date.now() - Date.parse(success.updated_at) < 1800000 &&
+    if (!health.code && !actionsClockPeriodicFresh_(health.monitor, 4500000)) health.code = 'CLOCK_MONITOR_STALE';
+    if (!health.code && !actionsClockPeriodicFresh_(health.sync, 28800000)) health.code = 'CLOCK_SYNC_STALE';
+    health.ok = !health.code && health.botActive && !!success && Date.now() - Date.parse(success.updated_at) < 1800000 &&
       (!pending || Date.now() - Date.parse(pending.requestedAt) < 600000) &&
       (!recovery || Date.now() - Date.parse(recovery.requestedAt) < 600000);
   } catch (e) {

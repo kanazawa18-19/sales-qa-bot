@@ -87,7 +87,7 @@ def refresh():
         saved_at = dt.datetime.fromisoformat(metadata["updated_at"].replace("Z", "+00:00"))
         if metadata["updated_at"] <= original:
             raise RuntimeError("SECRET_TIMESTAMP_NOT_UPDATED")
-    except Exception:
+    except Exception as error:
         print(f"AUTH_REFRESH_FAILED stage={stage}", flush=True)
         try:
             try:
@@ -96,7 +96,10 @@ def refresh():
                 previous = []
             if not previous or previous[0]["conclusion"] != "failure":
                 label = {"GOOGLE_AUTH_REFRESH": "Googleログインの更新", "SECRET_SAVE": "接続情報の保存", "SECRET_VERIFY": "保存結果の確認", "NOTEBOOKLM_REACH_CHECK": "NotebookLMへの接続確認", "SECRET_SNAPSHOT_CHECK": "待機中に古くなった接続情報の検出", "SECRET_CHANGED_DURING_REFRESH": "更新の競合確認"}.get(stage, "更新設定の確認")
-                notify(f"Sales QA Bot：{label}で認証更新に失敗しました。回答できなくなる可能性があります。" + run_link())
+                if stage == "SECRET_SNAPSHOT_CHECK" and type(error) is RuntimeError and str(error) == "QUEUED_SECRET_SNAPSHOT_IS_OLD":
+                    notify("Sales QA Bot：古い認証の上書きを防止したため、今回の認証更新は未実施です。次回更新で再試行します。" + run_link())
+                else:
+                    notify(f"Sales QA Bot：{label}で認証更新に失敗しました。回答できなくなる可能性があります。" + run_link())
         except Exception:
             print("OWNER_NOTIFICATION_FAILED", flush=True)
         return 1

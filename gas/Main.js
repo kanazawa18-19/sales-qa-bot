@@ -164,12 +164,12 @@ function sync_(c, book, channel, messages, snapshot) {
     if (stateIndex < 0)
         stateIndex = appendRaw_(freshness, [syncKey, snapshot, 'PENDING']) - 1;
     else {
-        rawCell_(freshness, stateIndex + 1, 2, snapshot);
-        rawCell_(freshness, stateIndex + 1, 3, 'PENDING');
+        freshness.getRange(stateIndex + 1, 2, 1, 2).setNumberFormat('@').setValues([[String(snapshot), 'PENDING']]);
     }
     SpreadsheetApp.flush();
     var data = SalesQa.row(channel, messages, c.p.SLACK_WORKSPACE_URL || 'https://cnctor.slack.com'), s = sheet_(book, c.p.GOOGLE_SHEET_NAME || 'QA');
-    var found = rows_(s).findIndex(function (r) {
+    var sheetRows = rows_(s);
+    var found = sheetRows.findIndex(function (r) {
         return r[8] === data[8] || (r[3] || '').indexOf('/p' + data[8].replace('.', '')) >= 0;
     });
     var columns = found >= 0 ? [0, 3, 5, 9].concat(data[6] ? [6] : []) : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -178,7 +178,7 @@ function sync_(c, book, channel, messages, snapshot) {
         appendRaw_(s, data);
     else
         columns.forEach(function (i) {
-            rawCell_(s, n, i + 1, data[i]);
+            if (sheetRows[found][i] !== String(data[i])) rawCell_(s, n, i + 1, data[i]);
         });
     SpreadsheetApp.flush();
     var actual = s.getRange(n, 1, 1, 10).getDisplayValues()[0];
@@ -214,9 +214,15 @@ function sync_(c, book, channel, messages, snapshot) {
     };
     var page;
     if (knownPageId) {
-        page = notion_(c, 'pages/' + knownPageId, {
-            properties: properties
-        }, 'patch');
+        // 保存先を毎回読み、外部編集や削除も検出する。入力が同じだけでは省略しない。
+        page = notion_(c, 'pages/' + knownPageId, undefined, 'get');
+        if (page.archived || page.in_trash) throw new Error('NOTION_PAGE_ARCHIVED');
+        var unchanged = Object.keys(properties).every(function(key) {
+            var expected = properties[key], actual = (page.properties || {})[key] || {};
+            if (expected.url !== undefined) return actual.url === expected.url;
+            return (actual.rich_text || []).map(function(x) {return x.plain_text || (x.text || {}).content || '';}).join('') === expected.rich_text[0].text.content;
+        });
+        if (!unchanged) page = notion_(c, 'pages/' + knownPageId, {properties: properties}, 'patch');
     }
     else {
         properties['質問の内容'] = {
@@ -259,7 +265,7 @@ function sync_(c, book, channel, messages, snapshot) {
         rawCell_(freshness, stateIndex + 1, 4, page.id);
         SpreadsheetApp.flush();
     }
-    var check = notion_(c, 'pages/' + page.id, undefined, 'get');
+    var check = unchanged ? page : notion_(c, 'pages/' + page.id, undefined, 'get');
     var value = (check.properties['回答テキスト'].rich_text || []).map(function (x) {
         return x.plain_text || (x.text || {}).content || '';
     }).join('');
@@ -487,12 +493,12 @@ function io_(c, book, lane) {
                     return r[0] === m.ts;
                 });
                 if (i < 0) {
-                    appendRaw_(stage, [m.ts, json]);
                     existing.push([m.ts, json]);
                 }
                 else
-                    rawCell_(stage, i + 1, 2, json);
+                    existing[i] = [m.ts, json];
             });
+            if (existing.length) stage.getRange(1, 1, existing.length, 2).setNumberFormat('@').setValues(existing);
             SpreadsheetApp.flush();
         },
         staged: function () {
@@ -654,7 +660,7 @@ function installSalesQaTrigger() {
     if (!ScriptApp.getProjectTriggers().some(function (t) {
         return t.getHandlerFunction() === 'pollSalesQa';
     }))
-        ScriptApp.newTrigger('pollSalesQa').timeBased().everyMinutes(5).create();
+        ScriptApp.newTrigger('pollSalesQa').timeBased().everyMinutes(30).create();
 }
 function healthSalesQa() {
     var p = PropertiesService.getScriptProperties(), out = {
@@ -669,7 +675,7 @@ function healthSalesQa() {
         return r[1] === 'FAILED';
     }).length : 0;
     out.deletedCount = deletedSheet ? deletedSheet.getLastRow() : 0;
-    out.stale = !out.lastRun || Date.now() - Date.parse(out.lastRun) > 15 * 60000;
+    out.stale = !out.lastRun || Date.now() - Date.parse(out.lastRun) > 75 * 60000;
     console.log(JSON.stringify(out));
     return out;
 }

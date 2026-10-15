@@ -11,6 +11,10 @@ function publishQaHeartbeat_() {
     pollTriggers: triggers.filter(function(n) {return n === 'pollSalesQa';}).length,
     clockTriggers: triggers.filter(function(n) {return n === 'tickActionsClock';}).length,
     lastRun: p.getProperty('LAST_RUN_SUCCESS'),
+    runBudgetSeconds: Number(p.getProperty('RUN_BUDGET_SECONDS') || 45),
+    lastSyncVerified: p.getProperty('LAST_SYNC_VERIFIED'),
+    deepSnapshot: Number(JSON.parse(p.getProperty('SCAN_STATE') || '{}').latest || 0),
+    recentSnapshot: Number(JSON.parse(p.getProperty('RECENT_STATE') || '{}').latest || 0),
     lastRecentCycle: p.getProperty('LAST_RECENT_CYCLE_SUCCESS'),
     lastDeepCycle: p.getProperty('LAST_CYCLE_SUCCESS'),
     health: JSON.parse(p.getProperty('HEALTH') || '{}'),
@@ -23,7 +27,9 @@ function publishQaHeartbeat_() {
   state.health = {status:state.health.status, code:state.health.code,
     started:state.health.started, durationMs:state.health.durationMs};
   state.clock = {ok:state.clock.ok, checkedAt:state.clock.checkedAt,
-    lastAuthSuccess:state.clock.lastAuthSuccess, elapsedMs:state.clock.elapsedMs};
+    code:/^CLOCK_[A-Z_0-9]+$/.test(state.clock.code || '') ? state.clock.code : null,
+    lastAuthSuccess:state.clock.lastAuthSuccess, elapsedMs:state.clock.elapsedMs,
+    monitor:publicPeriodicHealth_(state.clock.monitor), sync:publicPeriodicHealth_(state.clock.sync)};
   s.getRange(1, 1, 1, 2).setNumberFormat('@').setValues([['heartbeat', JSON.stringify(state)]]);
   SpreadsheetApp.flush();
   if (s.getRange(1, 2).getDisplayValue() !== JSON.stringify(state)) throw Error('HEARTBEAT_VERIFY_FAILED');
@@ -64,4 +70,22 @@ function auditQaNotionDuplicates() {
     groupsWithFixedPage:duplicate.filter(function(url) {return groups[url].some(function(id) {return fixed.indexOf(id)>=0;});}).length,
     maxCopies:Math.max.apply(null, [0].concat(duplicate.map(function(url) {return groups[url].length;})))};
   console.log(JSON.stringify(out)); return out;
+}
+
+// 本人承認済みの巡回予算だけを変更し、保存中の巡回位置は保持する。
+function configureQaHealth20261015() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) throw new Error('QA_CONFIG_BUSY');
+  try {
+    var p = PropertiesService.getScriptProperties();
+    p.setProperty('RUN_BUDGET_SECONDS', '90');
+    p.setProperty('POLL_INTERVAL_MINUTES', '30');
+    console.log('QA_HEALTH_CONFIGURED budgetSeconds=90 intervalMinutes=30');
+  } finally {lock.releaseLock();}
+}
+
+function publicPeriodicHealth_(value) {
+  if (!value) return null;
+  return {firstRequestedAt:value.firstRequestedAt, lastSuccess:value.lastSuccess,
+    lastCompleted:value.lastCompleted, pendingSince:value.pendingSince, pendingState:value.pendingState};
 }

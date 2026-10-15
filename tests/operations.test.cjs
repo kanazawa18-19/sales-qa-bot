@@ -36,3 +36,12 @@ test('Notion全頁の読取だけで重複と固定先を数える',()=>{
  assert.equal(r.extraPages,1);assert.equal(r.groupsWithFixedPage,1);
  assert.equal(x.read(),undefined);
 });
+
+test('巡回予算設定は巡回位置・有効状態を保持し通知しない',()=>{
+ const x=setup(), props={SCAN_STATE:'existing',ENABLED:'true',DAILY_RUNTIME_LIMIT_SECONDS:'14400'};let released=0;
+ x.ctx.PropertiesService={getScriptProperties:()=>({setProperty:(k,v)=>{props[k]=v;}})};
+ x.ctx.LockService={getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>released++})};
+ x.ctx.configureQaHealth20261015();
+ assert.deepEqual(props,{SCAN_STATE:'existing',ENABLED:'true',DAILY_RUNTIME_LIMIT_SECONDS:'14400',RUN_BUDGET_SECONDS:'90',POLL_INTERVAL_MINUTES:'30'});
+ assert.equal(released,1);assert.equal(x.read(),undefined);
+});

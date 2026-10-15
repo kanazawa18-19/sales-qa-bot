@@ -21,8 +21,8 @@ def assess(state, now):
     if state.get('schema') != 1:
         return ['監視データの形式が不明']
     for key, label, seconds in [('observedAt', 'GAS稼働記録', 20*60),
-                                 ('lastRun', 'QA巡回成功', 30*60),
-                                 ('lastRecentCycle', '新着巡回', 60*60),
+                                 ('lastRun', 'QA巡回成功', 75*60),
+                                 ('lastRecentCycle', '新着巡回', 90*60),
                                  ('lastDeepCycle', '全履歴巡回', 24*60*60)]:
         if age(state.get(key), now) > seconds:
             errors.append(label + 'が停滞または未確認')
@@ -31,8 +31,12 @@ def assess(state, now):
     if state.get('pollTriggers') != 1 or state.get('clockTriggers') != 1:
         errors.append('定期実行の登録数が1件ではない')
     clock = state.get('clock') or {}
-    if age(clock.get('checkedAt'), now) > 20*60 or clock.get('ok') is not True:
-        errors.append('GAS時計の成功が停滞または未確認')
+    if age(clock.get('checkedAt'), now) > 20*60:
+        errors.append('GAS時計の稼働記録が停滞または未確認')
+    elif clock.get('ok') is not True:
+        errors.append({'CLOCK_SYNC_STALE': '資料更新の失敗継続または停滞',
+                       'CLOCK_MONITOR_STALE': '外部監視の成功が停滞または未確認'}.get(
+                           clock.get('code'), 'GAS時計の成功が停滞または未確認'))
     if age(clock.get('lastAuthSuccess'), now) > 40*60:
         errors.append('NotebookLM認証更新が停滞または未確認')
     health = state.get('health') or {}
@@ -68,9 +72,11 @@ def main():
     args = parser.parse_args()
     now = dt.datetime.now(dt.timezone.utc)
     state = None
+    assessed = False
     try:
         state = read_heartbeat()
         errors = assess(state, now)
+        assessed = True
     except Exception:
         # 外部ライブラリの例外には接続情報が含まれ得るため本文を表示しない。
         errors = ['外部監視からGAS稼働記録を読み取れない']
@@ -78,11 +84,16 @@ def main():
     Path('monitor-evidence').mkdir(exist_ok=True)
     Path('monitor-evidence/health.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
     print(json.dumps({'checkedAt':result['checkedAt'], 'errors':errors}, ensure_ascii=False))
-    if args.notify and (errors or now.hour == 0 or os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'):
-        from runtime_ops import notify, run_link
-        label = '要確認：' + '、'.join(errors) if errors else '稼働確認：GAS記録・時計・認証更新の時刻は正常です。'
-        notify('Sales QA Bot 外部監視：' + label + '\nSlack回答や新着保存の実成功を保証する確認ではありません。' + run_link())
-    return 1 if errors else 0
+    if args.notify and (errors or now.hour == 0 or (os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch' and not os.environ.get('CLOCK_REQUEST_ID'))):
+        try:
+            from runtime_ops import notify, run_link
+            label = '要確認：' + '、'.join(errors) if errors else '稼働確認：GAS記録・時計・認証更新の時刻は正常です。'
+            notify('Sales QA Bot 外部監視：' + label + '\nSlack回答や新着保存の実成功を保証する確認ではありません。' + run_link())
+        except Exception:
+            print('OWNER_NOTIFICATION_FAILED')
+            return 1
+    # 定期監視の成功は判定・必要な通知の完了。異常内容は証跡と通知に保持する。
+    return 0 if assessed and (args.notify or not errors) else 1
 
 
 if __name__ == '__main__':
