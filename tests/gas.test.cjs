@@ -515,7 +515,7 @@ test('pollは失敗lane/channel/threadを本文なしで保存、進捗を保持
             }
         })
     };
-    f.ctx.MailApp = {
+    f.ctx.GmailApp = {
         sendEmail() {
         }
     };

@@ -585,7 +585,7 @@ function pollSalesQa() {
     var email = props.getProperty('HEALTH_EMAIL'), day = new Date().toISOString().slice(0, 10);
     var errorDue = fatal && (props.getProperty('LAST_MAIL_ERROR') !== health.code || Date.now() - Number(props.getProperty('LAST_ERROR_MAIL_AT') || 0) > 3600000);
     if (email && (errorDue || (!fatal && props.getProperty('LAST_HEALTH_MAIL_DAY') !== day))) {
-        MailApp.sendEmail(email, 'sales-qa-bot ' + (fatal ? '要確認' : '稼働報告'), JSON.stringify(healthSalesQa(), null, 2));
+        GmailApp.sendEmail(email, 'sales-qa-bot ' + (fatal ? '要確認' : '稼働報告'), JSON.stringify(healthSalesQa(), null, 2), {from: 'daizuhakkou0619@gmail.com'});
         if (fatal) {
             props.setProperty('LAST_MAIL_ERROR', health.code);
             props.setProperty('LAST_ERROR_MAIL_AT', String(Date.now()));

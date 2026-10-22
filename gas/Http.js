@@ -133,7 +133,7 @@ function httpDispatchRow_(row, index, sheet) {
 function httpNotice_(subject, detail) {
   var email = httpProps_().getProperty('HEALTH_EMAIL');
   if (!email) return;
-  MailApp.sendEmail(email, 'Sales QA Bot：GAS直接受信 ' + subject, detail);
+  GmailApp.sendEmail(email, 'Sales QA Bot：GAS直接受信 ' + subject, detail, {from: 'daizuhakkou0619@gmail.com'});
 }
 function httpResolveRow_(row, index, sheet, props) {
   var requestId = row[9];

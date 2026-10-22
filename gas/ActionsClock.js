@@ -54,7 +54,7 @@ function actionsClockNotice_(health) {
   var tag = health.ok ? 'ok-' + new Date().toISOString().slice(0, 10) : 'failed-' + new Date().toISOString().slice(0, 10) + '-' + (health.code || 'stale');
   var lastAt = Number(props.getProperty('ACTIONS_CLOCK_NOTICE_AT') || 0);
   if (props.getProperty('ACTIONS_CLOCK_NOTICE') !== tag && Date.now() - lastAt >= 3600000) {
-    MailApp.sendEmail(email, 'Sales QA Bot：GAS時計 ' + (health.ok ? '稼働報告' : '要確認'), '認証更新・Bot実行状態・保留要求を確認してください。実回答の成功確認とは別です。\n' + JSON.stringify(health));
+    GmailApp.sendEmail(email, 'Sales QA Bot：GAS時計 ' + (health.ok ? '稼働報告' : '要確認'), '認証更新・Bot実行状態・保留要求を確認してください。実回答の成功確認とは別です。\n' + JSON.stringify(health), {from: 'daizuhakkou0619@gmail.com'});
     props.setProperty('ACTIONS_CLOCK_NOTICE', tag);
     props.setProperty('ACTIONS_CLOCK_NOTICE_AT', String(Date.now()));
   }

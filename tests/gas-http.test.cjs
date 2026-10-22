@@ -39,7 +39,7 @@ function setup(props = {}, fetchImpl = () => { throw Error('unexpected fetch'); 
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
     Utilities: { getUuid: () => '22222222-2222-2222-2222-222222222222' },
     UrlFetchApp: { fetch: (url, options) => { calls.push({ url, options }); return fetchImpl(url, options); } },
-    MailApp: { sendEmail: (...a) => emails.push(a) },
+    GmailApp: { sendEmail: (...a) => emails.push(a) },
     SpreadsheetApp: { openById: (id) => books[id] },
     ContentService: { createTextOutput: (text) => ({ _text: text, setMimeType() { return this; } }), MimeType: { JSON: 'JSON' } },
     ScriptApp: {

@@ -9,7 +9,7 @@ function setup(values = {}, fetch = () => {throw Error('unexpected');}) {
     LockService: {getScriptLock: () => ({tryLock: () => true, releaseLock() {}})},
     Utilities: {getUuid: () => '11111111-1111-1111-1111-111111111111'},
     UrlFetchApp: {fetch: (url, options) => {calls.push({url, options}); return fetch(url, options);}},
-    MailApp: {sendEmail: (...a) => emails.push(a)},
+    GmailApp: {sendEmail: (...a) => emails.push(a)},
     ScriptApp: {getProjectTriggers: () => triggers, newTrigger: name => ({timeBased: () => ({everyMinutes: () => ({create: () => triggers.push({getHandlerFunction: () => name})})})}), deleteTrigger: t => triggers.splice(triggers.indexOf(t),1)}};
   vm.createContext(ctx);vm.runInContext(fs.readFileSync('gas/ActionsClock.js','utf8'),ctx);
   return {ctx, props, calls, emails, triggers};
@@ -33,3 +33,7 @@ test('保留要求の識別子と異常理由を確認できる',()=>{const pend
 test('確定拒否は結果不明と区別する',()=>{const x=setup({ACTIONS_CLOCK_TOKEN:'dummy'},()=>response(422));assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),/422/);assert.equal(JSON.parse(x.props.ACTIONS_CLOCK_SMOKE_REQUEST).state,'rejected');assert.throws(()=>x.ctx.runActionsClockOwnerSmoke(),/ALREADY/);});
 test('一時的に状態が揺れても通知を連発しない',()=>{const x=setup(enabled);x.ctx.actionsClockNotice_({ok:true});x.ctx.actionsClockNotice_({ok:false,code:'CLOCK_BOT_NOT_RUNNING'});x.ctx.actionsClockNotice_({ok:true});assert.equal(x.emails.length,1);});
 test('一致した要求だけを解除して次の更新へ進む',()=>{const pending={requestId:'test',requestedAt:new Date().toISOString()};const x=setup({...enabled,ACTIONS_CLOCK_AUTH_REQUEST:JSON.stringify(pending)},(u,o)=>u.includes('branch=main')?response(200,{workflow_runs:[{display_title:'GAS認証更新 test',status:'completed',conclusion:'success',updated_at:new Date().toISOString()}]}):api(u,o));x.ctx.tickActionsClock();assert.equal(x.calls.filter(c=>c.options.method==='post').length,1);assert.notEqual(JSON.parse(x.props.ACTIONS_CLOCK_AUTH_REQUEST).requestId,'test');});
+test('本人通知は個人Gmailを指定し、送信失敗時は代送も通知済み記録もしない',()=>{
+ const x=setup({HEALTH_EMAIL:'owner@example.invalid'});x.ctx.actionsClockNotice_({ok:true});assert.equal(x.emails[0][0],'owner@example.invalid');assert.equal(x.emails[0][3].from,'daizuhakkou0619@gmail.com');
+ const rejected=setup({HEALTH_EMAIL:'owner@example.invalid'});let fallback=0;rejected.ctx.MailApp={sendEmail:()=>fallback++};rejected.ctx.GmailApp.sendEmail=()=>{throw Error('送信元拒否')};assert.throws(()=>rejected.ctx.actionsClockNotice_({ok:true}));assert.equal(fallback,0);assert.equal(rejected.props.ACTIONS_CLOCK_NOTICE,undefined);
+});

@@ -69,7 +69,7 @@ function checkHttpNotebookClock() {
   var day = new Date().toISOString().slice(0, 10), previous = props.getProperty('HTTP_CLOCK_LAST_NOTICE');
   var notice = health.ok ? 'ok-' + day : 'failed';
   if (p.HEALTH_EMAIL && previous !== notice) {
-    MailApp.sendEmail(p.HEALTH_EMAIL, 'Sales QA Bot ' + (health.ok ? '認証更新の稼働報告' : '認証更新の要確認'), JSON.stringify(health, null, 2));
+    GmailApp.sendEmail(p.HEALTH_EMAIL, 'Sales QA Bot ' + (health.ok ? '認証更新の稼働報告' : '認証更新の要確認'), JSON.stringify(health, null, 2), {from: 'daizuhakkou0619@gmail.com'});
     props.setProperty('HTTP_CLOCK_LAST_NOTICE', notice);
   }
   return health;
