@@ -94,12 +94,19 @@ function enqueueHttpEvent_(body) {
 // 本人へ通知したうえで200を返す（Slackへは失敗を伝える手段がなく、再送にも頼れない）。
 function doPost(e) {
   var body;
-  try { body = JSON.parse((e.postData || {}).contents || '{}'); }
+  // 未認証の巨大・不正入力で保存処理や管理者通知を起動させない。
+  var raw = e && e.postData && e.postData.contents;
+  if (typeof raw !== 'string' || raw.length > 65536) return ContentService.createTextOutput('');
+  try { body = JSON.parse(raw); }
   catch (err) { return ContentService.createTextOutput(''); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return ContentService.createTextOutput('');
   if (body.type === 'url_verification') {
     return ContentService.createTextOutput(JSON.stringify({ challenge: body.challenge })).setMimeType(ContentService.MimeType.JSON);
   }
   if (body.type !== 'event_callback') return ContentService.createTextOutput('');
+  if (typeof body.event_id !== 'string' || !/^[A-Za-z0-9_-]{1,255}$/.test(body.event_id) ||
+      !body.event || typeof body.event !== 'object' || Array.isArray(body.event) ||
+      (body.event.text !== undefined && typeof body.event.text !== 'string')) return ContentService.createTextOutput('');
   try { enqueueHttpEvent_(body); }
   catch (err) {
     httpProps_().setProperty('HTTP_LAST_ENQUEUE_ERROR', (err.message || 'UNKNOWN') + ' ' + new Date().toISOString());
