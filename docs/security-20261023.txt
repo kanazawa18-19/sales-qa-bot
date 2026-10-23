@@ -1,0 +1,10 @@
+2026-10-23 セキュリティ対応
+
+GAS受信の不正型・大きすぎる本文・不正event_idを保存/管理者通知前に拒否。正常系・異常系20件と境界4件のローカル模擬試験成功。本番GAS未反映。署名検証省略の既存判断と、形式の正しい偽造イベントのリスクは残る。
+
+公式：
+https://nodejs.org/en/blog/vulnerability/october-2026-security-releases
+https://nextjs.org/blog/nextjs-security-update-october-14-2026
+
+全体の証跡・残件：~/security-audit-20261023/report.txt
+独立のセキュリティ・品質・QAレビュー実施。他社モデルレビューはChrome通信エラーで未実施。

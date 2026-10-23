@@ -84,12 +84,25 @@ test('同じevent_idは二重に積まない（Slack再送対策）', () => {
   post(x, okEvent); post(x, okEvent);
   assert.equal(x.sheets.GAS_HTTP_QUEUE._data.length, 1);
 });
-test('event_id欠落はSlackへ200を返しつつ、記録と通知を残す（GASは例外時も200を返すため再送に頼れない）', () => {
+test('event_id欠落は保存・通知せず200相当で捨てる', () => {
   const x = setup({ HEALTH_EMAIL: 'owner@example.test' }, undefined, { GAS_HTTP_QUEUE: makeSheet() });
   const out = post(x, { type: 'event_callback', event: { type: 'message', channel: 'C1', ts: '1.1', text: 'x' } });
   assert.equal(out._text, '');
-  assert.match(x.p.HTTP_LAST_ENQUEUE_ERROR, /HTTP_EVENT_ID_MISSING/);
-  assert.equal(x.emails.length, 1);
+  assert.equal(x.p.HTTP_LAST_ENQUEUE_ERROR, undefined);
+  assert.equal(x.emails.length, 0);
+  assert.equal(x.sheets.GAS_HTTP_QUEUE._data.length, 0);
+});
+test('不正な型や巨大入力の反復で管理者通知・保存・外部通信を起動しない', () => {
+  const x = setup({ HEALTH_EMAIL: 'owner@example.test' }, undefined, { GAS_HTTP_QUEUE: makeSheet() });
+  for (let i = 0; i < 20; i++) {
+    for (const body of [null, [], 1, {...okEvent, event_id: {}}, {...okEvent, event: null},
+      {...okEvent, event: {text: {}}}, {...okEvent, event: {...okEvent.event, text: 'x'.repeat(65536)}}]) post(x, body);
+    x.ctx.doPost();
+  }
+  assert.equal(x.emails.length, 0);
+  assert.equal(x.calls.length, 0);
+  assert.equal(x.sheets.GAS_HTTP_QUEUE._data.length, 0);
+  assert.equal(x.p.HTTP_LAST_ENQUEUE_ERROR, undefined);
 });
 test('ロック競合など結果不明な内部障害も200を返しつつ通知する', () => {
   const x = setup({ HEALTH_EMAIL: 'owner@example.test' }, undefined, { GAS_HTTP_QUEUE: makeSheet() });
